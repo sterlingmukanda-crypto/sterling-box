@@ -1,8 +1,8 @@
 const MODEL = "@cf/black-forest-labs/flux-2-klein-9b";
 
-const CORS = {
+const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -10,91 +10,102 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      ...CORS,
+      ...CORS_HEADERS,
       "Content-Type": "application/json; charset=utf-8",
     },
   });
 }
 
-function corsResponse(response) {
-  const headers = new Headers(response.headers);
+function getStylePrompt(style) {
+  const prompts = {
+    manga: `
+Transform the supplied photo into a professional Japanese manga illustration.
 
-  for (const [key, value] of Object.entries(CORS)) {
-    headers.set(key, value);
-  }
+Preserve the person's identity, facial structure, hairstyle, pose, clothing,
+body position and overall composition.
 
-  return new Response(response.body, {
-    status: response.status,
-    headers,
-  });
-}
+Use clean black ink linework, refined manga drawing, controlled screentones,
+professional shading and detailed manga artwork.
 
-function stylePrompt(style) {
-  switch (style) {
-    case "manga":
-      return `
-Transform the provided person's photo into a high-quality Japanese manga illustration.
-Preserve the person's identity, facial structure, hairstyle, pose, clothing and overall composition.
-Use clean professional black ink line art, manga screentones, expressive but natural facial details,
-detailed hair, strong composition and polished manga artwork.
-Do not add extra people.
-Do not change the person's pose.
-      `;
+Do not add another person.
+Do not change the pose.
+Do not change the person's identity.
+    `,
 
-    case "anime":
-      return `
-Transform the provided person's photo into a high-quality anime illustration.
-Preserve the person's identity, facial structure, hairstyle, pose, clothing and overall composition.
-Use clean anime line art, polished cel shading, detailed eyes, detailed hair,
-professional Japanese animation artwork and high visual quality.
-Do not add extra people.
-Do not change the person's pose.
-      `;
+    anime: `
+Transform the supplied photo into a high-quality Japanese anime illustration.
 
-    case "cartoon":
-      return `
-Transform the provided person's photo into a polished professional cartoon illustration.
-Preserve the person's identity, facial structure, hairstyle, pose, clothing and overall composition.
-Use clean expressive line art, appealing shapes, smooth colors and high-quality cartoon rendering.
-Do not add extra people.
-Do not change the person's pose.
-      `;
+Preserve the person's identity, facial structure, hairstyle, pose, clothing,
+body position and overall composition.
 
-    default:
-      return `
-Edit the provided image according to the user's instructions.
-Preserve the person's identity, facial structure, pose and important details unless the user explicitly asks for a change.
-Create a clean, high-quality finished image.
-      `;
-  }
+Use professional anime line art, clean cel shading, detailed hair,
+expressive but natural eyes and polished animation artwork.
+
+Do not add another person.
+Do not change the pose.
+Do not change the person's identity.
+    `,
+
+    cartoon: `
+Transform the supplied photo into a polished professional cartoon illustration.
+
+Preserve the person's identity, facial structure, hairstyle, pose, clothing,
+body position and overall composition.
+
+Use clean expressive outlines, appealing cartoon shapes,
+professional rendering and high-quality illustration.
+
+Do not add another person.
+Do not change the pose.
+Do not change the person's identity.
+    `,
+
+    custom: `
+Edit the supplied photo according to the user's instructions.
+
+Preserve the person's identity, facial structure, pose and important details
+unless the user explicitly requests a change.
+
+Create a clean, coherent, high-quality final image.
+    `,
+  };
+
+  return prompts[style] || prompts.custom;
 }
 
 export default {
   async fetch(request, env) {
+    // ─────────────────────────────
     // CORS
+    // ─────────────────────────────
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
-        headers: CORS,
+        headers: CORS_HEADERS,
       });
     }
 
     const url = new URL(request.url);
 
-    // Simple health check
+    // ─────────────────────────────
+    // TEST DU WORKER
+    // ─────────────────────────────
     if (request.method === "GET" && url.pathname === "/") {
       return json({
         ok: true,
         service: "Sterling Box Image AI",
         model: MODEL,
+        message: "Worker opérationnel.",
       });
     }
 
-    // Only our transformation endpoint
+    // ─────────────────────────────
+    // ENDPOINT IA
+    // ─────────────────────────────
     if (url.pathname !== "/transform") {
       return json({
         ok: true,
-        message: "Sterling Box Image AI is online.",
+        message: "Sterling Box Image AI est en ligne.",
       });
     }
 
@@ -102,41 +113,50 @@ export default {
       return json(
         {
           ok: false,
-          error: "Method not allowed",
+          error: "Méthode non autorisée.",
         },
         405
       );
     }
 
     try {
+      // Vérifie la liaison Workers AI
       if (!env.AI) {
         return json(
           {
             ok: false,
             error:
-              "Workers AI n'est pas connecté à ce Worker. La liaison AI doit être configurée dans Cloudflare.",
+              "La liaison Workers AI 'AI' n'est pas disponible sur ce Worker.",
           },
           500
         );
       }
 
+      // ─────────────────────────────
+      // RÉCUPÉRATION DU FORMULAIRE
+      // ─────────────────────────────
       const incoming = await request.formData();
 
       const image = incoming.get("image");
-      const style = String(incoming.get("style") || "custom");
-      const customPrompt = String(incoming.get("prompt") || "");
+      const style = String(
+        incoming.get("style") || "custom"
+      ).toLowerCase();
+
+      const userPrompt = String(
+        incoming.get("prompt") || ""
+      ).trim();
 
       if (!(image instanceof File)) {
         return json(
           {
             ok: false,
-            error: "Aucune image n'a été reçue.",
+            error: "Aucune image reçue.",
           },
           400
         );
       }
 
-      if (image.size === 0) {
+      if (image.size <= 0) {
         return json(
           {
             ok: false,
@@ -146,93 +166,134 @@ export default {
         );
       }
 
-      // Prompt de base selon le mode choisi
-      const basePrompt = stylePrompt(style);
+      // ─────────────────────────────
+      // CONSTRUCTION DU PROMPT
+      // ─────────────────────────────
+      const basePrompt = getStylePrompt(style);
 
-      // Prompt utilisateur
       const finalPrompt = `
 ${basePrompt}
 
-IMPORTANT:
-The result must remain based on the provided source image.
+Additional user instructions:
+${userPrompt || "Apply the selected transformation naturally."}
 
-User's additional instructions:
-${customPrompt || "No additional instructions."}
+The final result must look like a finished professional image,
+not a filter, not a pixelated effect and not a crude color manipulation.
       `.trim();
 
-      // Formulaire multipart attendu par FLUX.2
+      // ─────────────────────────────
+      // FORMULAIRE POUR FLUX.2
+      // ─────────────────────────────
       const modelForm = new FormData();
 
-      modelForm.append("prompt", finalPrompt);
+      modelForm.append(
+        "prompt",
+        finalPrompt
+      );
 
-      // FLUX.2 klein accepte l'image de référence sous input_image_0
       modelForm.append(
         "input_image_0",
         image,
-        image.name || "sterling-box-input.jpg"
+        image.name || "sterling-box-image.jpg"
       );
 
-      // Taille de sortie
-      modelForm.append("width", "1024");
-      modelForm.append("height", "1024");
+      // Sortie carrée haute qualité
+      modelForm.append(
+        "width",
+        "1024"
+      );
 
-      // Guidance
-      modelForm.append("guidance", "3.5");
+      modelForm.append(
+        "height",
+        "1024"
+      );
+
+      // Intensité de suivi du prompt
+      modelForm.append(
+        "guidance",
+        "3.5"
+      );
 
       /*
-       * FormData doit être sérialisé par Request/Response
-       * pour obtenir le bon boundary multipart.
+       * Cloudflare demande un vrai multipart/form-data
+       * avec son boundary.
+       *
+       * Response(FormData) permet de récupérer :
+       * - le body
+       * - le Content-Type avec boundary
        */
-      const serialized = new Response(modelForm);
+      const serializedForm =
+        new Response(modelForm);
 
-      const body = serialized.body;
-      const contentType = serialized.headers.get("content-type");
+      const body =
+        serializedForm.body;
+
+      const contentType =
+        serializedForm.headers.get(
+          "content-type"
+        );
 
       if (!body || !contentType) {
-        throw new Error("Impossible de préparer la requête multipart.");
+        throw new Error(
+          "Impossible de préparer la requête multipart."
+        );
       }
 
-      // Appel réel à Workers AI
-      const result = await env.AI.run(MODEL, {
-        multipart: {
-          body,
-          contentType,
-        },
-      });
+      // ─────────────────────────────
+      // APPEL À FLUX.2 [KLEIN] 9B
+      // ─────────────────────────────
+      const result = await env.AI.run(
+        MODEL,
+        {
+          multipart: {
+            body,
+            contentType,
+          },
+        }
+      );
 
-      /*
-       * FLUX.2 klein retourne normalement :
-       * {
-       *   image: "BASE64..."
-       * }
-       */
-
-      if (result && typeof result === "object" && result.image) {
+      // ─────────────────────────────
+      // RÉPONSE FLUX
+      // ─────────────────────────────
+      if (
+        result &&
+        typeof result === "object" &&
+        result.image
+      ) {
         return json({
           ok: true,
           image: result.image,
         });
       }
 
-      // Sécurité au cas où Cloudflare renvoie directement un flux
-      if (result instanceof ReadableStream) {
-        return corsResponse(
-          new Response(result, {
-            headers: {
-              "Content-Type": "image/png",
-            },
-          })
-        );
+      // Sécurité si Cloudflare renvoie
+      // directement un flux
+      if (
+        result instanceof ReadableStream
+      ) {
+        return new Response(result, {
+          status: 200,
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "image/png",
+          },
+        });
       }
 
-      return json({
-        ok: false,
-        error: "Réponse inattendue de Workers AI.",
-        result,
-      }, 500);
-
+      // Réponse inattendue
+      return json(
+        {
+          ok: false,
+          error:
+            "Workers AI a renvoyé une réponse inattendue.",
+        },
+        500
+      );
     } catch (error) {
-      console.error("Sterling Box AI error:", error);
+      console.error(
+        "STERLING BOX AI ERROR:",
+        error
+      );
 
       return json(
         {
