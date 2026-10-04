@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sterling-box-image-ai",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-04",
+  "ai": {
+    "binding": "AI"
+  }
+}
