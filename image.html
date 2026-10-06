@@ -2,275 +2,190 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Sterling Box — Image AI</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Sterling Box — Image Studio</title>
 
 <style>
-*{
-  box-sizing:border-box;
-  margin:0;
-  padding:0;
-}
-
-:root{
-  --bg:#08090d;
-  --panel:#11131a;
-  --panel2:#171a23;
-  --border:#292d38;
-  --text:#f5f7fb;
-  --muted:#9ba2b1;
-  --accent:#7c5cff;
-  --accent2:#a78bfa;
-  --danger:#ff5d73;
-  --success:#48d597;
-}
-
+*{box-sizing:border-box}
 body{
-  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  background:var(--bg);
-  color:var(--text);
+  margin:0;
+  font-family:Arial,Helvetica,sans-serif;
+  background:#09090d;
+  color:#fff;
   min-height:100vh;
 }
+button,input,textarea,select{font:inherit}
 
-button,
-input,
-textarea,
-select{
-  font:inherit;
+header{
+  height:64px;
+  display:flex;
+  align-items:center;
+  padding:0 18px;
+  border-bottom:1px solid #292933;
+  background:#0d0d13;
+}
+.logo{
+  font-size:21px;
+  font-weight:800;
+  letter-spacing:.5px;
+}
+.logo span{color:#8b5cf6}
+
+.app{
+  display:grid;
+  grid-template-columns:260px 1fr 280px;
+  min-height:calc(100vh - 64px);
+}
+
+/* SIDEBARS */
+.sidebar{
+  padding:18px;
+  background:#0d0d13;
+  border-right:1px solid #292933;
+  overflow:auto;
+}
+.right{
+  border-right:0;
+  border-left:1px solid #292933;
+}
+
+h3{
+  margin:0 0 14px;
+  font-size:14px;
+  color:#aaa;
+}
+
+.section{
+  margin-bottom:24px;
+}
+
+label{
+  display:block;
+  font-size:13px;
+  color:#cfcfd6;
+  margin-bottom:7px;
+}
+
+input[type=file],
+select,
+textarea{
+  width:100%;
+  background:#15151d;
+  color:#fff;
+  border:1px solid #30303b;
+  border-radius:10px;
+  padding:10px;
+}
+
+textarea{
+  resize:vertical;
+  min-height:90px;
 }
 
 button{
   border:0;
+  border-radius:10px;
+  padding:10px 12px;
   cursor:pointer;
+  color:#fff;
+  background:#20202a;
+  transition:.15s;
+}
+button:hover{background:#30303d}
+button:disabled{opacity:.5;cursor:not-allowed}
+
+.primary{
+  background:#7c3aed;
+}
+.primary:hover{background:#8b5cf6}
+
+.danger{
+  background:#3a1820;
 }
 
-.app{
-  min-height:100vh;
+.style-grid{
   display:grid;
-  grid-template-columns:270px minmax(0,1fr) 300px;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
 }
 
-/* SIDEBARS */
-
-.sidebar{
-  background:var(--panel);
-  border-right:1px solid var(--border);
-  padding:20px;
-  overflow:auto;
+.style-btn.active{
+  background:#7c3aed;
 }
 
-.right{
-  border-left:1px solid var(--border);
-  border-right:0;
+.accessories{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:7px;
 }
 
-.logo{
-  font-size:22px;
-  font-weight:800;
-  margin-bottom:24px;
+.acc{
+  font-size:20px;
+  padding:9px 4px;
 }
 
-.logo span{
-  color:var(--accent2);
-}
-
-.section{
-  margin-bottom:22px;
-}
-
-.section-title{
-  font-size:12px;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  color:var(--muted);
-  margin-bottom:10px;
-}
-
-.upload{
+.range{
   width:100%;
-  padding:13px;
-  border:1px dashed #555b6d;
-  background:#151821;
-  color:white;
-  border-radius:12px;
-  text-align:center;
 }
 
-.upload:hover{
-  border-color:var(--accent);
-}
-
-.file-name{
-  margin-top:8px;
-  color:var(--muted);
-  font-size:12px;
-  word-break:break-word;
-}
-
-/* CONTROLS */
-
-.control{
-  margin-bottom:14px;
-}
-
-.control label{
-  display:flex;
-  justify-content:space-between;
-  font-size:13px;
-  margin-bottom:7px;
-}
-
-.control span{
-  color:var(--accent2);
-}
-
-input[type="range"]{
-  width:100%;
-  accent-color:var(--accent);
-}
-
-select,
-.text-input,
-.prompt{
-  width:100%;
-  background:#0d0f15;
-  border:1px solid var(--border);
-  color:white;
-  border-radius:10px;
-  padding:10px;
-  outline:none;
-}
-
-select:focus,
-.text-input:focus,
-.prompt:focus{
-  border-color:var(--accent);
-}
-
-/* BUTTONS */
-
-.btn{
-  width:100%;
-  padding:11px 12px;
-  border-radius:10px;
-  margin-bottom:8px;
-  background:#1a1d27;
-  color:white;
-  border:1px solid var(--border);
-}
-
-.btn:hover{
-  background:#222633;
-}
-
-.btn.primary{
-  background:linear-gradient(135deg,#6848ff,#9a73ff);
-  border-color:transparent;
-}
-
-.btn.green{
-  background:#123b2d;
-  border-color:#245d48;
-}
-
-.btn.danger{
-  background:#391720;
-  border-color:#63303b;
+.range-value{
+  float:right;
+  color:#9b9ba6;
 }
 
 /* CENTER */
-
-.workspace{
+.center{
+  padding:20px;
   display:flex;
   flex-direction:column;
-  min-width:0;
-  background:
-    radial-gradient(circle at 50% 20%,rgba(124,92,255,.09),transparent 35%),
-    var(--bg);
-}
-
-.topbar{
-  padding:14px 18px;
-  border-bottom:1px solid var(--border);
-  display:flex;
-  justify-content:space-between;
   align-items:center;
-  gap:12px;
+  overflow:auto;
 }
 
-.top-title{
-  font-weight:700;
-}
-
-.status{
-  font-size:12px;
-  color:var(--muted);
-}
-
-.canvas-area{
-  flex:1;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:25px;
-  min-height:450px;
-}
-
-.preview-wrap{
-  position:relative;
-  max-width:100%;
-  max-height:70vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-#preview{
-  display:block;
-  max-width:100%;
-  max-height:70vh;
-  object-fit:contain;
-  border-radius:15px;
-  box-shadow:0 20px 70px rgba(0,0,0,.45);
-}
-
-.placeholder{
-  width:min(650px,90vw);
-  min-height:350px;
-  border:1px dashed #414654;
+.preview{
+  width:min(900px,100%);
+  min-height:420px;
+  border:1px solid #292933;
   border-radius:18px;
+  background:
+    linear-gradient(45deg,#15151d 25%,transparent 25%),
+    linear-gradient(-45deg,#15151d 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#15151d 75%),
+    linear-gradient(-45deg,transparent 75%,#15151d 75%);
+  background-size:30px 30px;
+  background-position:0 0,0 15px,15px -15px,-15px 0;
   display:flex;
-  align-items:center;
   justify-content:center;
-  flex-direction:column;
-  color:var(--muted);
+  align-items:center;
+  overflow:hidden;
+  position:relative;
+}
+
+#previewImage{
+  max-width:100%;
+  max-height:650px;
+  object-fit:contain;
+  display:none;
+  transform-origin:center center;
+}
+
+.empty{
+  color:#777783;
   text-align:center;
-  padding:30px;
+  padding:40px;
 }
 
-.placeholder strong{
-  font-size:24px;
-  color:white;
-  margin-bottom:8px;
-}
-
-/* AI */
-
-.ai-box{
-  border-top:1px solid var(--border);
-  background:#0e1016;
-  padding:14px;
+.ai-panel{
+  width:min(900px,100%);
+  margin-top:15px;
+  background:#101017;
+  border:1px solid #292933;
+  border-radius:16px;
+  padding:15px;
 }
 
 .ai-title{
-  font-size:13px;
   font-weight:700;
-  margin-bottom:8px;
-}
-
-.prompt{
-  min-height:75px;
-  resize:vertical;
   margin-bottom:10px;
 }
 
@@ -278,158 +193,57 @@ select:focus,
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:8px;
+  margin-top:10px;
 }
 
-.ai-btn{
-  background:#191c26;
-  color:white;
-  border:1px solid var(--border);
-  padding:10px 6px;
-  border-radius:10px;
-  font-size:12px;
+.status{
+  margin-top:10px;
+  color:#aaa;
+  font-size:13px;
+  min-height:20px;
 }
 
-.ai-btn:hover{
-  border-color:var(--accent);
-}
-
-.ai-btn.active{
-  background:linear-gradient(135deg,#5c43d7,#8a68ff);
-  border-color:transparent;
-}
-
-.ai-help{
-  font-size:11px;
-  color:var(--muted);
+.download{
+  width:100%;
   margin-top:8px;
 }
 
-/* TRANSFORMATIONS */
-
-.transform-grid{
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:8px;
-}
-
-.transform-btn{
-  padding:12px 8px;
-  border-radius:10px;
-  background:#191c25;
-  color:white;
-  border:1px solid var(--border);
-}
-
-.transform-btn:hover{
-  border-color:var(--accent);
-}
-
-/* ACCESSORIES */
-
-.accessories{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:6px;
-}
-
-.acc{
-  background:#191c25;
-  border:1px solid var(--border);
-  border-radius:9px;
-  padding:8px 3px;
-  color:white;
-  font-size:18px;
-}
-
-.acc.selected{
-  border-color:var(--accent);
-  background:#28203e;
-}
-
-/* LOADING */
-
-.loading{
-  position:fixed;
-  inset:0;
-  background:rgba(4,5,8,.78);
-  backdrop-filter:blur(7px);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  z-index:1000;
-}
-
-.loading.show{
-  display:flex;
-}
-
-.loading-card{
-  background:#141720;
-  border:1px solid var(--border);
-  padding:28px;
-  border-radius:18px;
-  text-align:center;
-  width:min(360px,90vw);
-}
-
-.spinner{
-  width:42px;
-  height:42px;
-  border:4px solid #303543;
-  border-top-color:var(--accent2);
-  border-radius:50%;
-  animation:spin .8s linear infinite;
-  margin:0 auto 15px;
-}
-
-@keyframes spin{
-  to{transform:rotate(360deg)}
+.reset{
+  width:100%;
 }
 
 /* MOBILE */
-
-@media(max-width:1050px){
+@media(max-width:1000px){
   .app{
-    grid-template-columns:220px minmax(0,1fr);
+    grid-template-columns:210px 1fr;
   }
-
   .right{
     display:none;
   }
 }
 
-@media(max-width:760px){
+@media(max-width:700px){
+  header{height:56px}
   .app{
     display:block;
   }
-
   .sidebar{
-    display:none;
+    border-right:0;
+    border-bottom:1px solid #292933;
   }
-
-  .workspace{
-    min-height:100vh;
+  .right{
+    display:block;
+    border-left:0;
+    border-top:1px solid #292933;
   }
-
-  .canvas-area{
+  .center{
     padding:12px;
-    min-height:330px;
   }
-
-  #preview{
-    max-height:48vh;
+  .preview{
+    min-height:300px;
   }
-
   .ai-buttons{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-  .topbar{
-    padding:12px;
-  }
-
-  .ai-box{
-    padding:10px;
+    grid-template-columns:1fr 1fr;
   }
 }
 </style>
@@ -437,519 +251,474 @@ select:focus,
 
 <body>
 
+<header>
+  <div class="logo">Sterling <span>Box</span> — Image Studio</div>
+</header>
+
 <div class="app">
 
-<!-- LEFT SIDEBAR -->
-
+<!-- LEFT -->
 <aside class="sidebar">
 
-<div class="logo">
-  Sterling <span>Box</span>
-</div>
+  <div class="section">
+    <h3>PHOTO PRINCIPALE</h3>
 
-<div class="section">
+    <input
+      id="imageInput"
+      type="file"
+      accept="image/*"
+    >
+  </div>
 
-<div class="section-title">Photo principale</div>
+  <div class="section">
+    <h3>TRANSFORMATION IA</h3>
 
-<input
-  id="fileInput"
-  type="file"
-  accept="image/*"
-  hidden
->
+    <div class="style-grid">
+      <button class="style-btn active" data-style="original">Original</button>
+      <button class="style-btn" data-style="manga">Manga</button>
+      <button class="style-btn" data-style="anime">Anime</button>
+      <button class="style-btn" data-style="cartoon">Cartoon</button>
+    </div>
+  </div>
 
-<button class="upload" onclick="fileInput.click()">
-  📷 Importer une photo
-</button>
+  <div class="section">
+    <h3>FILTRES</h3>
 
-<div class="file-name" id="fileName">
-  Aucune photo
-</div>
+    <label>
+      Luminosité
+      <span class="range-value" id="brightnessValue">100%</span>
+    </label>
+    <input class="range" id="brightness" type="range" min="50" max="150" value="100">
 
-</div>
+    <label>
+      Contraste
+      <span class="range-value" id="contrastValue">100%</span>
+    </label>
+    <input class="range" id="contrast" type="range" min="50" max="150" value="100">
 
-<div class="section">
+    <label>
+      Saturation
+      <span class="range-value" id="saturationValue">100%</span>
+    </label>
+    <input class="range" id="saturation" type="range" min="0" max="200" value="100">
+  </div>
 
-<div class="section-title">Transformations IA</div>
+  <div class="section">
+    <h3>TEINTE DE PEAU</h3>
 
-<div class="transform-grid">
+    <select id="skinTone">
+      <option value="">Originale</option>
+      <option value="light">Claire</option>
+      <option value="medium">Moyenne</option>
+      <option value="dark">Foncée</option>
+      <option value="deep">Très foncée</option>
+    </select>
+  </div>
 
-<button class="transform-btn" onclick="aiTransform('manga')">
-  📖 Manga
-</button>
+  <div class="section">
+    <h3>COULEUR DES YEUX</h3>
 
-<button class="transform-btn" onclick="aiTransform('anime')">
-  🎌 Anime
-</button>
+    <select id="eyeColor">
+      <option value="">Originale</option>
+      <option value="blue">Bleus</option>
+      <option value="green">Verts</option>
+      <option value="brown">Marron</option>
+      <option value="gray">Gris</option>
+      <option value="hazel">Noisette</option>
+    </select>
+  </div>
 
-<button class="transform-btn" onclick="aiTransform('cartoon')">
-  🖍️ Cartoon
-</button>
+  <div class="section">
+    <h3>COULEUR DES CHEVEUX</h3>
 
-<button class="transform-btn" onclick="aiTransform('custom')">
-  🤖 Personnalisé
-</button>
+    <select id="hairColor">
+      <option value="">Originale</option>
+      <option value="black">Noirs</option>
+      <option value="brown">Bruns</option>
+      <option value="blond">Blonds</option>
+      <option value="red">Roux</option>
+      <option value="white">Blancs</option>
+      <option value="blue">Bleus</option>
+      <option value="purple">Violets</option>
+      <option value="pink">Roses</option>
+    </select>
+  </div>
 
-</div>
+  <div class="section">
+    <h3>ACCESSOIRES</h3>
 
-</div>
+    <div class="accessories">
+      <button class="acc" data-accessory="">❌</button>
+      <button class="acc" data-accessory="sunglasses">😎</button>
+      <button class="acc" data-accessory="crown">👑</button>
+      <button class="acc" data-accessory="cap">🧢</button>
+      <button class="acc" data-accessory="hat">🎩</button>
+      <button class="acc" data-accessory="cat ears">🐱</button>
+      <button class="acc" data-accessory="rabbit ears">🐰</button>
+      <button class="acc" data-accessory="star accessory">⭐</button>
+    </div>
+  </div>
 
-<div class="section">
+  <div class="section">
+    <h3>ARRIÈRE-PLAN</h3>
 
-<div class="section-title">Filtres</div>
+    <select id="background">
+      <option value="">Original</option>
+      <option value="studio">Studio professionnel</option>
+      <option value="nature">Nature</option>
+      <option value="city">Ville</option>
+      <option value="beach">Plage</option>
+      <option value="space">Espace</option>
+      <option value="fantasy">Fantaisie</option>
+      <option value="neon">Néon futuriste</option>
+    </select>
 
-<select id="filter">
-<option value="none">Original</option>
-<option value="grayscale(1)">Noir & blanc</option>
-<option value="sepia(1)">Sépia</option>
-<option value="contrast(1.35)">Contraste</option>
-<option value="saturate(1.5)">Saturé</option>
-<option value="brightness(1.12)">Lumineux</option>
-<option value="contrast(1.15) saturate(.75)">Cinéma</option>
-<option value="sepia(.35) saturate(1.25) contrast(1.05)">Vintage</option>
-</select>
+    <br><br>
 
-</div>
+    <label>Importer ton propre arrière-plan</label>
+    <input id="backgroundInput" type="file" accept="image/*">
+  </div>
 
-<div class="section">
+  <div class="section">
+    <button id="ultraHD" class="primary" style="width:100%">
+      ✨ Ultra HD
+    </button>
+  </div>
 
-<div class="section-title">Arrière-plan</div>
+  <div class="section">
+    <button id="detectBtn" style="width:100%">
+      🔎 Détecter le sujet
+    </button>
+  </div>
 
-<select id="background">
-<option value="none">Original</option>
-<option value="gradient">Dégradé</option>
-<option value="studio">Studio</option>
-<option value="sunset">Coucher de soleil</option>
-<option value="space">Espace</option>
-<option value="city">Ville</option>
-<option value="forest">Forêt</option>
-</select>
+  <div class="section">
+    <button id="downloadBtn" class="primary download">
+      ⬇️ Télécharger
+    </button>
 
-</div>
-
-<div class="section">
-
-<button class="btn green" onclick="downloadImage()">
-  💾 Télécharger
-</button>
-
-<button class="btn danger" onclick="resetAll()">
-  ↻ Réinitialiser
-</button>
-
-</div>
+    <button id="resetBtn" class="reset danger">
+      ↩️ Réinitialiser
+    </button>
+  </div>
 
 </aside>
 
 
-<!-- WORKSPACE -->
+<!-- CENTER -->
+<main class="center">
 
-<main class="workspace">
+  <div class="preview" id="preview">
+    <div class="empty" id="empty">
+      <div style="font-size:50px">🖼️</div>
+      <div>Importe une photo pour commencer</div>
+    </div>
 
-<div class="topbar">
+    <img id="previewImage" alt="Aperçu">
+  </div>
 
-<div class="top-title">
-  🖼️ Sterling Box Image Studio
-</div>
+  <div class="ai-panel">
 
-<div class="status" id="status">
-  Prêt
-</div>
+    <div class="ai-title">
+      🤖 Décris exactement la génération IA que tu veux
+    </div>
 
-</div>
+    <textarea
+      id="prompt"
+      placeholder="Exemple : transforme ma photo en illustration anime cinématographique, garde mon visage et ma pose, ajoute un éclairage bleu et un décor futuriste..."
+    ></textarea>
 
+    <div class="ai-buttons">
+      <button class="primary" id="mangaBtn">Manga</button>
+      <button class="primary" id="animeBtn">Anime</button>
+      <button class="primary" id="cartoonBtn">Cartoon</button>
+      <button class="primary" id="customBtn">✨ Générer</button>
+    </div>
 
-<div class="canvas-area">
-
-<div class="preview-wrap" id="previewWrap">
-
-<div class="placeholder" id="placeholder">
-
-<strong>Ta photo apparaîtra ici</strong>
-
-<div>
-Importe une image pour commencer.
-</div>
-
-</div>
-
-<img id="preview" hidden>
-
-</div>
-
-</div>
-
-
-<!-- AI PROMPT -->
-
-<div class="ai-box">
-
-<div class="ai-title">
-  🤖 Décris exactement la génération que tu veux
-</div>
-
-<textarea
-  id="prompt"
-  class="prompt"
-  placeholder="Exemple : transforme cette photo en personnage anime, vêtements noirs élégants, lumière cinématographique, fond futuriste, visage fidèle à la photo..."
-></textarea>
-
-<div class="ai-buttons">
-
-<button class="ai-btn" onclick="aiTransform('manga')">
-  📖 Manga
-</button>
-
-<button class="ai-btn" onclick="aiTransform('anime')">
-  🎌 Anime
-</button>
-
-<button class="ai-btn" onclick="aiTransform('cartoon')">
-  🖍️ Cartoon
-</button>
-
-<button class="ai-btn" onclick="aiTransform('custom')">
-  ✨ Générer
-</button>
-
-</div>
-
-<div class="ai-help">
-L'IA utilise ta photo comme référence et tient compte de ta description.
-</div>
-
-</div>
+    <div class="status" id="status"></div>
+  </div>
 
 </main>
 
 
-<!-- RIGHT SIDEBAR -->
-
+<!-- RIGHT -->
 <aside class="sidebar right">
 
-<div class="section">
+  <div class="section">
+    <h3>RÉGLAGES</h3>
 
-<div class="section-title">Réglages</div>
+    <label>
+      Luminosité
+      <span class="range-value" id="brightnessValue2">100%</span>
+    </label>
+    <input class="range" id="brightness2" type="range" min="50" max="150" value="100">
 
-<div class="control">
+    <br><br>
 
-<label>
-Luminosité
-<span id="brightnessValue">100%</span>
-</label>
+    <label>
+      Contraste
+      <span class="range-value" id="contrastValue2">100%</span>
+    </label>
+    <input class="range" id="contrast2" type="range" min="50" max="150" value="100">
 
-<input
-  id="brightness"
-  type="range"
-  min="50"
-  max="150"
-  value="100"
->
+    <br><br>
 
-</div>
+    <label>
+      Saturation
+      <span class="range-value" id="saturationValue2">100%</span>
+    </label>
+    <input class="range" id="saturation2" type="range" min="0" max="200" value="100">
+  </div>
 
+  <div class="section">
+    <h3>DÉPLACEMENT</h3>
 
-<div class="control">
+    <label>
+      Zoom
+      <span class="range-value" id="zoomValue">100%</span>
+    </label>
 
-<label>
-Contraste
-<span id="contrastValue">100%</span>
-</label>
+    <input
+      id="zoom"
+      class="range"
+      type="range"
+      min="50"
+      max="200"
+      value="100"
+    >
+  </div>
 
-<input
-  id="contrast"
-  type="range"
-  min="50"
-  max="150"
-  value="100"
->
+  <div class="section">
+    <h3>ÉTAT</h3>
 
-</div>
-
-
-<div class="control">
-
-<label>
-Saturation
-<span id="saturationValue">100%</span>
-</label>
-
-<input
-  id="saturation"
-  type="range"
-  min="0"
-  max="200"
-  value="100"
->
-
-</div>
-
-</div>
-
-
-<div class="section">
-
-<div class="section-title">Teinte de peau</div>
-
-<select id="skinTone">
-
-<option value="none">Originale</option>
-<option value="warm">Chaleureuse</option>
-<option value="gold">Dorée</option>
-<option value="cool">Froide</option>
-<option value="soft">Douce</option>
-
-</select>
-
-</div>
-
-
-<div class="section">
-
-<div class="section-title">Couleur des yeux</div>
-
-<select id="eyeColor">
-
-<option value="none">Originale</option>
-<option value="brown">Marron</option>
-<option value="blue">Bleu</option>
-<option value="green">Vert</option>
-<option value="gray">Gris</option>
-<option value="violet">Violet</option>
-</select>
-
-</div>
-
-
-<div class="section">
-
-<div class="section-title">Couleur des cheveux</div>
-
-<select id="hairColor">
-
-<option value="none">Originale</option>
-<option value="black">Noir</option>
-<option value="brown">Brun</option>
-<option value="blond">Blond</option>
-<option value="red">Roux</option>
-<option value="blue">Bleu</option>
-<option value="purple">Violet</option>
-<option value="pink">Rose</option>
-
-</select>
-
-</div>
-
-
-<div class="section">
-
-<div class="section-title">Accessoires</div>
-
-<div class="accessories">
-
-<button class="acc" data-acc="none">✕</button>
-<button class="acc" data-acc="😎">😎</button>
-<button class="acc" data-acc="👑">👑</button>
-<button class="acc" data-acc="🧢">🧢</button>
-<button class="acc" data-acc="🎩">🎩</button>
-<button class="acc" data-acc="🐱">🐱</button>
-<button class="acc" data-acc="🐰">🐰</button>
-<button class="acc" data-acc="⭐">⭐</button>
-
-</div>
-
-</div>
-
-
-<div class="section">
-
-<div class="section-title">Qualité IA</div>
-
-<button class="btn primary" onclick="aiTransform('ultra')">
-  ✨ Ultra HD
-</button>
-
-</div>
-
-
-<div class="section">
-
-<div class="section-title">Détection</div>
-
-<button class="btn" onclick="detectSubject()">
-  🧍 Détecter le sujet
-</button>
-
-</div>
+    <div id="imageState" style="color:#999;font-size:13px">
+      Aucune image chargée.
+    </div>
+  </div>
 
 </aside>
 
 </div>
 
-
-<div class="loading" id="loading">
-
-<div class="loading-card">
-
-<div class="spinner"></div>
-
-<strong id="loadingText">
-  Génération IA...
-</strong>
-
-<p style="margin-top:8px;color:#9ba2b1;font-size:12px">
-  Sterling Box prépare ton image.
-</p>
-
-</div>
-
-</div>
-
-
 <script>
-
 /* =========================================================
-   CONFIGURATION
-========================================================= */
+   STERLING BOX — BACKEND RENDER
+   ========================================================= */
 
-/*
-  Après avoir créé ton Worker Cloudflare,
-  nous mettrons ici son adresse.
-
-  Exemple :
-  const AI_WORKER_URL =
-    "https://sterling-box-image-ai.xxx.workers.dev";
-*/
-
-const AI_WORKER_URL = "";
+const AI_WORKER_URL =
+  "https://sterling-box-ai.onrender.com";
 
 
 /* =========================================================
-   VARIABLES
-========================================================= */
+   ELEMENTS
+   ========================================================= */
 
-let originalImage = null;
-let generatedImage = null;
-let selectedAccessory = "none";
+const imageInput = document.getElementById("imageInput");
+const backgroundInput = document.getElementById("backgroundInput");
 
-const fileInput = document.getElementById("fileInput");
-const preview = document.getElementById("preview");
-const placeholder = document.getElementById("placeholder");
-const fileName = document.getElementById("fileName");
-const statusEl = document.getElementById("status");
-const loading = document.getElementById("loading");
-const loadingText = document.getElementById("loadingText");
+const previewImage = document.getElementById("previewImage");
+const empty = document.getElementById("empty");
+
+const promptInput = document.getElementById("prompt");
+const status = document.getElementById("status");
+const imageState = document.getElementById("imageState");
 
 const brightness = document.getElementById("brightness");
 const contrast = document.getElementById("contrast");
 const saturation = document.getElementById("saturation");
 
-const brightnessValue = document.getElementById("brightnessValue");
-const contrastValue = document.getElementById("contrastValue");
-const saturationValue = document.getElementById("saturationValue");
+const brightness2 = document.getElementById("brightness2");
+const contrast2 = document.getElementById("contrast2");
+const saturation2 = document.getElementById("saturation2");
 
-const filter = document.getElementById("filter");
-const background = document.getElementById("background");
-const prompt = document.getElementById("prompt");
+const zoom = document.getElementById("zoom");
 
 const skinTone = document.getElementById("skinTone");
 const eyeColor = document.getElementById("eyeColor");
 const hairColor = document.getElementById("hairColor");
+const background = document.getElementById("background");
+
+let originalImageFile = null;
+let originalImageURL = "";
+let backgroundImageURL = "";
+
+let selectedStyle = "original";
+let selectedAccessory = "";
+let zoomValue = 100;
 
 
 /* =========================================================
-   IMPORT IMAGE
-========================================================= */
+   IMAGE IMPORT
+   ========================================================= */
 
-fileInput.addEventListener("change", () => {
+imageInput.addEventListener("change", () => {
 
-  const file = fileInput.files[0];
+  const file = imageInput.files[0];
 
-  if(!file) return;
+  if (!file) return;
 
-  if(!file.type.startsWith("image/")){
-    alert("Choisis une image.");
-    return;
+  originalImageFile = file;
+
+  if (originalImageURL) {
+    URL.revokeObjectURL(originalImageURL);
   }
 
-  const reader = new FileReader();
+  originalImageURL = URL.createObjectURL(file);
 
-  reader.onload = e => {
+  previewImage.src = originalImageURL;
+  previewImage.style.display = "block";
+  empty.style.display = "none";
 
-    originalImage = e.target.result;
-    generatedImage = null;
+  imageState.textContent =
+    "Image chargée : " + file.name;
 
-    preview.src = originalImage;
+  status.textContent =
+    "Photo prête pour la transformation.";
 
-    preview.hidden = false;
-    placeholder.style.display = "none";
-
-    fileName.textContent = file.name;
-
-    statusEl.textContent = "Photo chargée";
-
-    updatePreview();
-
-  };
-
-  reader.readAsDataURL(file);
-
+  applyLocalFilters();
 });
 
 
 /* =========================================================
-   LOCAL EDITING
-========================================================= */
+   BACKGROUND IMPORT
+   ========================================================= */
 
-function updatePreview(){
+backgroundInput.addEventListener("change", () => {
 
-  if(!preview.src) return;
+  const file = backgroundInput.files[0];
 
-  const b = Number(brightness.value);
-  const c = Number(contrast.value);
-  const s = Number(saturation.value);
+  if (!file) return;
 
-  preview.style.filter =
+  if (backgroundImageURL) {
+    URL.revokeObjectURL(backgroundImageURL);
+  }
+
+  backgroundImageURL = URL.createObjectURL(file);
+
+  document.getElementById("preview").style.backgroundImage =
+    `url("${backgroundImageURL}")`;
+
+  document.getElementById("preview").style.backgroundSize =
+    "cover";
+
+  document.getElementById("preview").style.backgroundPosition =
+    "center";
+
+  status.textContent =
+    "Arrière-plan personnalisé sélectionné. Il sera utilisé dans ta demande IA.";
+});
+
+
+/* =========================================================
+   LOCAL FILTERS
+   ========================================================= */
+
+function applyLocalFilters() {
+
+  const b = brightness.value;
+  const c = contrast.value;
+  const s = saturation.value;
+
+  previewImage.style.filter =
     `brightness(${b}%)
      contrast(${c}%)
-     saturate(${s}%)
-     ${filter.value === "none" ? "" : filter.value}`;
+     saturate(${s}%)`;
 
   brightnessValue.textContent = b + "%";
   contrastValue.textContent = c + "%";
   saturationValue.textContent = s + "%";
 
+  brightnessValue2.textContent = b + "%";
+  contrastValue2.textContent = c + "%";
+  saturationValue2.textContent = s + "%";
 }
 
+brightness.addEventListener("input", () => {
+  brightness2.value = brightness.value;
+  applyLocalFilters();
+});
 
-brightness.addEventListener("input",updatePreview);
-contrast.addEventListener("input",updatePreview);
-saturation.addEventListener("input",updatePreview);
-filter.addEventListener("change",updatePreview);
+brightness2.addEventListener("input", () => {
+  brightness.value = brightness2.value;
+  applyLocalFilters();
+});
+
+contrast.addEventListener("input", () => {
+  contrast2.value = contrast.value;
+  applyLocalFilters();
+});
+
+contrast2.addEventListener("input", () => {
+  contrast.value = contrast2.value;
+  applyLocalFilters();
+});
+
+saturation.addEventListener("input", () => {
+  saturation2.value = saturation.value;
+  applyLocalFilters();
+});
+
+saturation2.addEventListener("input", () => {
+  saturation.value = saturation2.value;
+  applyLocalFilters();
+});
+
+
+/* =========================================================
+   ZOOM
+   ========================================================= */
+
+zoom.addEventListener("input", () => {
+
+  zoomValue = Number(zoom.value);
+
+  document.getElementById("zoomValue").textContent =
+    zoomValue + "%";
+
+  previewImage.style.transform =
+    `scale(${zoomValue / 100})`;
+});
+
+
+/* =========================================================
+   STYLE BUTTONS
+   ========================================================= */
+
+document.querySelectorAll(".style-btn").forEach(button => {
+
+  button.addEventListener("click", () => {
+
+    document.querySelectorAll(".style-btn")
+      .forEach(b => b.classList.remove("active"));
+
+    button.classList.add("active");
+
+    selectedStyle =
+      button.dataset.style;
+
+    status.textContent =
+      "Style sélectionné : " +
+      selectedStyle;
+  });
+
+});
 
 
 /* =========================================================
    ACCESSORIES
-========================================================= */
+   ========================================================= */
 
 document.querySelectorAll(".acc").forEach(button => {
 
   button.addEventListener("click", () => {
 
-    document.querySelectorAll(".acc").forEach(b => {
-      b.classList.remove("selected");
-    });
+    document.querySelectorAll(".acc")
+      .forEach(b => b.style.outline = "none");
 
-    button.classList.add("selected");
+    button.style.outline =
+      "2px solid #8b5cf6";
 
-    selectedAccessory = button.dataset.acc;
-
-    if(selectedAccessory === "none"){
-      statusEl.textContent = "Accessoire supprimé";
-    }else{
-      statusEl.textContent =
-        "Accessoire sélectionné : " + selectedAccessory;
-    }
+    selectedAccessory =
+      button.dataset.accessory || "";
 
   });
 
@@ -958,455 +727,540 @@ document.querySelectorAll(".acc").forEach(button => {
 
 /* =========================================================
    BUILD AI PROMPT
-========================================================= */
+   ========================================================= */
 
-function buildPrompt(type){
+function buildPrompt(style) {
 
-  let base = "";
+  let parts = [];
 
-  if(type === "manga"){
+  if (style === "manga") {
 
-    base = `
-Transform the provided photo into a high-quality Japanese manga illustration.
-Preserve the person's identity, facial structure, pose, clothing and overall composition.
-Use clean professional ink lines, expressive manga shading, controlled screentones,
-strong but natural facial details and polished black-and-white manga rendering.
-Do not replace the person with a different person.
-`;
+    parts.push(`
+Transform this supplied photo into a professional
+Japanese manga illustration.
 
+Preserve the person's identity, face structure,
+hairstyle, clothing, pose, body position and composition.
+
+Use clean ink linework, manga screentones,
+professional shading and detailed illustration quality.
+
+Do not add another person.
+Do not change the pose unnecessarily.
+`);
   }
 
-  else if(type === "anime"){
+  if (style === "anime") {
 
-    base = `
-Transform the provided photo into a polished high-quality anime illustration.
-Preserve the person's identity, facial structure, pose, clothing and composition.
-Use clean anime line art, beautiful cel shading, refined eyes and detailed hair.
-Keep the person recognizable and avoid changing the composition unnecessarily.
-`;
+    parts.push(`
+Transform this supplied photo into a high-quality
+Japanese anime illustration.
 
+Preserve the person's identity, facial structure,
+hairstyle, clothing, pose and composition.
+
+Use polished anime line art, detailed hair,
+natural expressive eyes and professional cel shading.
+
+Do not add another person.
+Do not change the pose unnecessarily.
+`);
   }
 
-  else if(type === "cartoon"){
+  if (style === "cartoon") {
 
-    base = `
-Transform the provided photo into a polished modern cartoon illustration.
-Preserve the person's identity, facial structure, pose, clothing and composition.
-Use clean expressive line art, attractive colors and professional cartoon shading.
-Keep the person recognizable.
-`;
+    parts.push(`
+Transform this supplied photo into a polished,
+professional cartoon illustration.
 
+Preserve the person's identity, facial structure,
+hairstyle, clothing, pose and composition.
+
+Use clean expressive outlines and high-quality
+cartoon rendering.
+
+Do not add another person.
+Do not change the pose unnecessarily.
+`);
   }
 
-  else if(type === "ultra"){
+  if (style === "custom" || style === "original") {
 
-    base = `
-Enhance the provided image to a very high quality result.
-Improve perceived detail, clarity, lighting and fine textures while preserving
-the person's identity, face, pose, clothing and original composition.
-Do not redesign the person.
-`;
+    parts.push(`
+Edit the supplied photo according to the user's
+instructions.
 
-  }
-
-  else{
-
-    base = `
-Edit the provided photo according to the user's description.
-Preserve the person's identity, face, pose and important details unless the user
-explicitly asks to change them.
-Create a polished, coherent and high-quality result.
-`;
-
-  }
-
-
-  let additions = "";
-
-  if(eyeColor.value !== "none"){
-
-    additions += `
-Change the person's eye color to ${eyeColor.value}.
-Make the result natural and coherent with the lighting.
-`;
-
-  }
-
-  if(hairColor.value !== "none"){
-
-    additions += `
-Change the person's hair color to ${hairColor.value}.
-Keep the hairstyle and identity recognizable.
-`;
-
-  }
-
-  if(skinTone.value !== "none"){
-
-    additions += `
-Apply a subtle ${skinTone.value} skin tone adjustment.
-Keep realistic facial features and natural skin texture.
-`;
-
-  }
-
-  if(selectedAccessory !== "none"){
-
-    additions += `
-Add this accessory to the person: ${selectedAccessory}.
-Place it naturally and make it fit the person's position.
-`;
-
+Preserve the person's identity and important
+visual details unless a change is explicitly requested.
+`);
   }
 
 
-  const custom = prompt.value.trim();
+  if (skinTone.value) {
 
-  if(custom){
+    parts.push(
+      "Change the person's skin tone to " +
+      skinTone.value +
+      " naturally while preserving realistic facial details."
+    );
+  }
 
-    additions += `
+
+  if (eyeColor.value) {
+
+    parts.push(
+      "Change the person's eye color to " +
+      eyeColor.value +
+      "."
+    );
+  }
+
+
+  if (hairColor.value) {
+
+    parts.push(
+      "Change the person's hair color to " +
+      hairColor.value +
+      " while preserving the hairstyle."
+    );
+  }
+
+
+  if (selectedAccessory) {
+
+    parts.push(
+      "Add this accessory naturally: " +
+      selectedAccessory +
+      "."
+    );
+  }
+
+
+  if (background.value) {
+
+    parts.push(
+      "Change the background to a " +
+      background.value +
+      " environment while keeping the person as the main subject."
+    );
+  }
+
+
+  if (backgroundImageURL) {
+
+    parts.push(`
+Use the user's selected custom background as
+the intended background of the final composition.
+Keep the person as the main subject.
+`);
+  }
+
+
+  if (promptInput.value.trim()) {
+
+    parts.push(`
 Additional user instructions:
-${custom}
-`;
 
+${promptInput.value.trim()}
+`);
   }
 
-  return base + additions;
+
+  parts.push(`
+Create a coherent professional final image.
+
+The result must be a genuine AI image transformation,
+not a simple color filter, pixel effect or crude overlay.
+`);
+
+  return parts.join("\n");
 }
 
 
 /* =========================================================
    AI TRANSFORMATION
-========================================================= */
+   ========================================================= */
 
-async function aiTransform(type){
+async function aiTransform(style) {
 
-  if(!originalImage){
+  if (!originalImageFile) {
 
     alert("Importe d'abord une photo.");
-    return;
-
-  }
-
-  if(!AI_WORKER_URL){
-
-    alert(
-      "Le moteur IA n'est pas encore connecté.\n\n" +
-      "Nous allons créer le Worker Cloudflare dans l'étape suivante."
-    );
 
     return;
-
   }
 
 
-  try{
-
-    loading.classList.add("show");
-
-    if(type === "manga"){
-      loadingText.textContent = "Transformation Manga...";
-    }
-    else if(type === "anime"){
-      loadingText.textContent = "Transformation Anime...";
-    }
-    else if(type === "cartoon"){
-      loadingText.textContent = "Transformation Cartoon...";
-    }
-    else if(type === "ultra"){
-      loadingText.textContent = "Amélioration Ultra HD...";
-    }
-    else{
-      loadingText.textContent = "Génération personnalisée...";
-    }
+  selectedStyle = style;
 
 
-    statusEl.textContent = "IA en cours...";
+  status.textContent =
+    "🤖 Sterling Box prépare la génération IA...";
+
+  document.querySelectorAll(".style-btn")
+    .forEach(button => {
+
+      button.classList.toggle(
+        "active",
+        button.dataset.style === style
+      );
+
+    });
 
 
-    /*
-      On convertit la photo en Blob.
-    */
-
-    const response = await fetch(originalImage);
-
-    const blob = await response.blob();
-
+  try {
 
     const formData = new FormData();
 
     formData.append(
       "image",
-      blob,
-      "sterling-source.jpg"
+      originalImageFile
     );
 
     formData.append(
       "style",
-      type
+      style
     );
 
     formData.append(
       "prompt",
-      buildPrompt(type)
+      buildPrompt(style)
     );
 
 
-    const aiResponse = await fetch(
+    const response = await fetch(
       AI_WORKER_URL + "/transform",
       {
-        method:"POST",
-        body:formData
+        method: "POST",
+        body: formData
       }
     );
-
-
-    if(!aiResponse.ok){
-
-      const errorText = await aiResponse.text();
-
-      throw new Error(
-        errorText || "Erreur du serveur IA."
-      );
-
-    }
 
 
     const contentType =
-      aiResponse.headers.get("content-type") || "";
+      response.headers.get("content-type") || "";
 
 
-    let imageUrl;
+    if (!response.ok) {
+
+      let message =
+        "Erreur du serveur.";
+
+      if (contentType.includes("application/json")) {
+
+        const data =
+          await response.json();
+
+        message =
+          data.error || message;
+
+      } else {
+
+        const text =
+          await response.text();
+
+        if (text) message = text;
+
+      }
+
+      throw new Error(message);
+    }
 
 
-    /*
-      Le Worker pourra renvoyer :
-      - directement une image
-      - ou un JSON contenant image
-    */
+    let imageURL = null;
 
-    if(contentType.includes("application/json")){
 
-      const data = await aiResponse.json();
+    if (contentType.includes("application/json")) {
 
-      if(!data.image){
+      const data =
+        await response.json();
+
+      if (!data.ok || !data.image) {
+
         throw new Error(
-          "Le serveur n'a pas renvoyé d'image."
+          data.error ||
+          "Aucune image générée."
         );
       }
 
-      imageUrl =
-        "data:image/png;base64," +
-        data.image;
+      imageURL = data.image;
 
-    }
+    } else {
 
-    else{
+      const blob =
+        await response.blob();
 
-      const resultBlob =
-        await aiResponse.blob();
-
-      imageUrl =
-        URL.createObjectURL(resultBlob);
-
+      imageURL =
+        URL.createObjectURL(blob);
     }
 
 
-    generatedImage = imageUrl;
+    previewImage.src = imageURL;
 
-    preview.src = generatedImage;
+    previewImage.style.display =
+      "block";
 
-    preview.hidden = false;
-    placeholder.style.display = "none";
+    empty.style.display =
+      "none";
 
-    statusEl.textContent =
-      "Transformation terminée ✓";
+    previewImage.onload = () => {
+
+      applyLocalFilters();
+
+      previewImage.style.transform =
+        `scale(${zoomValue / 100})`;
+    };
 
 
-    updatePreview();
+    imageState.textContent =
+      "✨ Image IA générée avec succès.";
 
+    status.textContent =
+      "✅ Transformation terminée.";
 
-  }
-
-  catch(error){
+  } catch (error) {
 
     console.error(error);
 
-    statusEl.textContent =
-      "Erreur IA";
+    status.textContent =
+      "❌ " + error.message;
 
     alert(
-      "La génération IA a échoué.\n\n" +
+      "La génération IA a échoué :\n\n" +
       error.message
     );
-
   }
-
-  finally{
-
-    loading.classList.remove("show");
-
-  }
-
 }
+
+
+/* =========================================================
+   AI BUTTONS
+   ========================================================= */
+
+document.getElementById("mangaBtn")
+  .addEventListener("click", () => {
+    aiTransform("manga");
+  });
+
+document.getElementById("animeBtn")
+  .addEventListener("click", () => {
+    aiTransform("anime");
+  });
+
+document.getElementById("cartoonBtn")
+  .addEventListener("click", () => {
+    aiTransform("cartoon");
+  });
+
+document.getElementById("customBtn")
+  .addEventListener("click", () => {
+    aiTransform("custom");
+  });
+
+
+/* =========================================================
+   ULTRA HD
+   ========================================================= */
+
+document.getElementById("ultraHD")
+  .addEventListener("click", () => {
+
+    promptInput.value +=
+      (promptInput.value ? "\n\n" : "") +
+      "Enhance the image with very high detail, sharpness and high-resolution professional quality.";
+
+    status.textContent =
+      "✨ Mode Ultra HD ajouté à la demande IA.";
+  });
 
 
 /* =========================================================
    DETECTION
-========================================================= */
+   ========================================================= */
 
-function detectSubject(){
+document.getElementById("detectBtn")
+  .addEventListener("click", () => {
 
-  if(!originalImage){
+    if (!originalImageFile) {
 
-    alert("Importe d'abord une photo.");
-    return;
+      alert("Importe d'abord une photo.");
 
+      return;
+    }
+
+    promptInput.value +=
+      (promptInput.value ? "\n\n" : "") +
+      "Accurately preserve the main person as the primary subject and keep the important facial and body details.";
+
+    status.textContent =
+      "🔎 Instructions de préservation du sujet ajoutées.";
+  });
+
+
+/* =========================================================
+   BACKGROUND DESCRIPTION
+   ========================================================= */
+
+background.addEventListener("change", () => {
+
+  if (background.value) {
+
+    status.textContent =
+      "Arrière-plan sélectionné : " +
+      background.options[
+        background.selectedIndex
+      ].text;
+
+  } else {
+
+    status.textContent =
+      "Arrière-plan original sélectionné.";
   }
-
-  /*
-    La vraie segmentation sera connectée
-    avec le système de suppression d'arrière-plan.
-  */
-
-  statusEl.textContent =
-    "Détection du sujet prête";
-
-  alert(
-    "La détection du sujet sera connectée " +
-    "au module d'arrière-plan dans la prochaine étape."
-  );
-
-}
+});
 
 
 /* =========================================================
    DOWNLOAD
-========================================================= */
+   ========================================================= */
 
-async function downloadImage(){
+document.getElementById("downloadBtn")
+  .addEventListener("click", async () => {
 
-  if(!preview.src){
+    if (!previewImage.src ||
+        previewImage.style.display === "none") {
 
-    alert("Aucune image à télécharger.");
-    return;
+      alert("Aucune image à télécharger.");
 
-  }
-
-
-  const img = new Image();
-
-  img.crossOrigin = "anonymous";
-
-  img.onload = () => {
-
-    const canvas =
-      document.createElement("canvas");
-
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-
-    const ctx =
-      canvas.getContext("2d");
-
-    ctx.drawImage(
-      img,
-      0,
-      0
-    );
+      return;
+    }
 
 
-    /*
-      Les réglages locaux sont appliqués
-      au moment de l'export.
-    */
+    try {
 
-    ctx.filter =
-      `brightness(${brightness.value}%)
-       contrast(${contrast.value}%)
-       saturate(${saturation.value}%)`;
+      const response =
+        await fetch(previewImage.src);
 
-    ctx.drawImage(
-      img,
-      0,
-      0
-    );
+      const blob =
+        await response.blob();
 
-    ctx.filter = "none";
+      const url =
+        URL.createObjectURL(blob);
 
+      const link =
+        document.createElement("a");
 
-    const link =
-      document.createElement("a");
+      link.href = url;
+      link.download =
+        "sterling-box-image.png";
 
-    link.download =
-      "sterling-box-result.png";
+      document.body.appendChild(link);
 
-    link.href =
-      canvas.toDataURL("image/png");
+      link.click();
 
-    link.click();
+      link.remove();
 
-  };
+      URL.revokeObjectURL(url);
 
-  img.src = preview.src;
+    } catch {
 
-}
+      const link =
+        document.createElement("a");
+
+      link.href =
+        previewImage.src;
+
+      link.download =
+        "sterling-box-image.png";
+
+      link.click();
+    }
+
+  });
 
 
 /* =========================================================
    RESET
-========================================================= */
+   ========================================================= */
 
-function resetAll(){
+document.getElementById("resetBtn")
+  .addEventListener("click", () => {
 
-  originalImage = null;
-  generatedImage = null;
+    brightness.value = 100;
+    brightness2.value = 100;
 
-  preview.src = "";
-  preview.hidden = true;
+    contrast.value = 100;
+    contrast2.value = 100;
 
-  placeholder.style.display = "flex";
+    saturation.value = 100;
+    saturation2.value = 100;
 
-  fileInput.value = "";
+    zoom.value = 100;
+    zoomValue = 100;
 
-  fileName.textContent =
-    "Aucune photo";
+    skinTone.value = "";
+    eyeColor.value = "";
+    hairColor.value = "";
+    background.value = "";
 
-  brightness.value = 100;
-  contrast.value = 100;
-  saturation.value = 100;
+    selectedAccessory = "";
+    selectedStyle = "original";
 
-  filter.value = "none";
+    promptInput.value = "";
 
-  background.value = "none";
+    document.querySelectorAll(".style-btn")
+      .forEach(button => {
 
-  skinTone.value = "none";
-  eyeColor.value = "none";
-  hairColor.value = "none";
+        button.classList.toggle(
+          "active",
+          button.dataset.style === "original"
+        );
 
-  prompt.value = "";
+      });
 
-  selectedAccessory = "none";
+    document.querySelectorAll(".acc")
+      .forEach(button => {
 
-  document.querySelectorAll(".acc").forEach(b => {
-    b.classList.remove("selected");
+        button.style.outline = "none";
+
+      });
+
+    previewImage.style.filter = "none";
+    previewImage.style.transform = "scale(1)";
+
+    document.getElementById("preview")
+      .style.backgroundImage = "";
+
+    if (originalImageURL) {
+
+      previewImage.src =
+        originalImageURL;
+
+      previewImage.style.display =
+        "block";
+
+      empty.style.display =
+        "none";
+    }
+
+    applyLocalFilters();
+
+    status.textContent =
+      "Projet réinitialisé.";
+
+    imageState.textContent =
+      originalImageFile
+        ? "Photo originale restaurée."
+        : "Aucune image chargée.";
   });
-
-  statusEl.textContent =
-    "Prêt";
-
-  updatePreview();
-
-}
 
 
 /* =========================================================
    INITIALISATION
-========================================================= */
+   ========================================================= */
 
-updatePreview();
+applyLocalFilters();
 
 </script>
 
 </body>
-</html>
+  </html>
