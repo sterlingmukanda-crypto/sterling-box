@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sterling IA — Études & Devoirs</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #080b12;
+      --panel: #101521;
+      --panel2: #151c2b;
+      --border: #273044;
+      --text: #f4f7fb;
+      --muted: #98a3b8;
+      --accent: #6d7cff;
+      --accent2: #4f61ff;
+      --success: #35d07f;
+      --danger: #ff5964;
+      --user: #26356f;
+      --assistant: #151c2b;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      min-height: 100vh;
+    }
+
+    button,
+    select,
+    textarea,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1100px;
+      margin: auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+
+    header {
+      padding: 18px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 11, 18, 0.96);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--accent), #8c63ff);
+      font-size: 22px;
+      box-shadow: 0 8px 25px rgba(80, 90, 255, .25);
+    }
+
+    .brand h1 {
+      font-size: 19px;
+      margin: 0 0 3px;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #777;
+    }
+
+    .status-dot.online {
+      background: var(--success);
+      box-shadow: 0 0 10px rgba(53, 208, 127, .7);
+    }
+
+    .status-dot.error {
+      background: var(--danger);
+    }
+
+    /* CONFIG */
+
+    .config {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      background: var(--panel2);
+      outline: none;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    /* MODES */
+
+    .modes {
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: thin;
+    }
+
+    .mode-btn {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--muted);
+      padding: 9px 13px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* QUICK ACTIONS */
+
+    .quick {
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .quick button {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 12px;
+    }
+
+    .quick button:hover {
+      border-color: var(--accent);
+    }
+
+    /* CHAT */
+
+    .chat {
+      flex: 1;
+      padding: 20px 16px;
+      overflow-y: auto;
+    }
+
+    .welcome {
+      max-width: 720px;
+      margin: 20px auto;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+    }
+
+    .welcome h2 {
+      margin-top: 0;
+      font-size: 21px;
+    }
+
+    .welcome p {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .welcome ul {
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .message-row {
+      display: flex;
+      margin: 12px 0;
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .message {
+      max-width: min(820px, 90%);
+      padding: 13px 15px;
+      border-radius: 15px;
+      line-height: 1.55;
+      font-size: 14px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .message.user {
+      background: var(--user);
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+      background: var(--assistant);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message.error {
+      background: rgba(255, 89, 100, .10);
+      border: 1px solid rgba(255, 89, 100, .35);
+      color: #ffb6bb;
+    }
+
+    .message strong {
+      color: white;
+    }
+
+    /* TYPING */
+
+    .typing {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      margin: 10px 0;
+    }
+
+    .typing.show {
+      display: flex;
+    }
+
+    .typing span {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: bounce 1s infinite alternate;
+    }
+
+    .typing span:nth-child(2) {
+      animation-delay: .15s;
+    }
+
+    .typing span:nth-child(3) {
+      animation-delay: .3s;
+    }
+
+    @keyframes bounce {
+      from {
+        opacity: .3;
+        transform: translateY(0);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(-4px);
+      }
+    }
+
+    /* COMPOSER */
+
+    .composer-area {
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      padding: 12px 16px 16px;
+      position: sticky;
+      bottom: 0;
+    }
+
+    .composer {
+      display: flex;
+      gap: 9px;
+      align-items: flex-end;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    textarea {
+      flex: 1;
+      min-height: 48px;
+      max-height: 180px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      background: #0b101a;
+      color: var(--text);
+      border-radius: 13px;
+      padding: 13px;
+      outline: none;
+      line-height: 1.45;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .send {
+      min-width: 48px;
+      height: 48px;
+      border: 0;
+      border-radius: 13px;
+      background: var(--accent);
+      color: white;
+      font-size: 20px;
+    }
+
+    .send:hover {
+      background: var(--accent2);
+    }
+
+    .send:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .bottom-info {
+      max-width: 1000px;
+      margin: 7px auto 0;
+      color: var(--muted);
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .clear-btn {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 0;
+    }
+
+    .clear-btn:hover {
+      color: white;
+    }
+
+    /* RESPONSIVE */
+
+    @media (max-width: 650px) {
+      .config {
+        grid-template-columns: 1fr;
+      }
+
+      .header-row {
+        align-items: flex-start;
+      }
+
+      .status {
+        font-size: 10px;
+      }
+
+      .brand h1 {
+        font-size: 17px;
+      }
+
+      .message {
+        max-width: 94%;
+      }
+
+      .welcome {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-row">
+
+      <div class="brand">
+        <div class="logo">🤖</div>
+
+        <div>
+          <h1>Sterling IA</h1>
+          <p>Études & Devoirs</p>
+        </div>
+      </div>
+
+      <div class="status">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Connexion...</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- CONFIGURATION -->
+  <section class="config">
+
+    <div class="field">
+      <label for="level">Niveau scolaire</label>
+
+      <select id="level">
+        <option value="Collège">Collège</option>
+        <option value="Lycée">Lycée</option>
+        <option value="Université">Université</option>
+        <option value="Autre" selected>Autre</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="subject">Matière</label>
+
+      <select id="subject">
+        <option value="Mathématiques">Mathématiques</option>
+        <option value="Sciences">Sciences</option>
+        <option value="Physique">Physique</option>
+        <option value="Chimie">Chimie</option>
+        <option value="Français">Français</option>
+        <option value="Anglais">Anglais</option>
+        <option value="Histoire-Géographie">Histoire-Géographie</option>
+        <option value="Informatique">Informatique</option>
+        <option value="Autre" selected>Autre</option>
+      </select>
+    </div>
+
+  </section>
+
+  <!-- MODES -->
+  <nav class="modes">
+
+    <button class="mode-btn active" data-mode="devoir">
+      📝 Devoir
+    </button>
+
+    <button class="mode-btn" data-mode="cours">
+      📚 Cours
+    </button>
+
+    <button class="mode-btn" data-mode="resume">
+      📌 Résumé
+    </button>
+
+    <button class="mode-btn" data-mode="correction">
+      ✅ Correction
+    </button>
+
+    <button class="mode-btn" data-mode="methode">
+      🧠 Méthode
+    </button>
+
+  </nav>
+
+  <!-- ACTIONS RAPIDES -->
+  <div class="quick">
+
+    <button data-question="Résous cet exercice de mathématiques en expliquant chaque étape.">
+      🔢 Mathématiques
+    </button>
+
+    <button data-question="Explique cette notion scientifique simplement, puis donne un exemple.">
+      🔬 Sciences
+    </button>
+
+    <button data-question="Explique-moi cette notion de langue avec des exemples simples.">
+      🌍 Langues
+    </button>
+
+  </div>
+
+  <!-- CHAT -->
+  <main id="chat" class="chat">
+
+    <div id="welcome" class="welcome">
+
+      <h2>👋 Bienvenue dans Sterling IA</h2>
+
+      <p>
+        Je suis ton assistant pédagogique. Je peux t'aider à comprendre
+        tes cours, résoudre des exercices et corriger tes réponses.
+      </p>
+
+      <ul>
+        <li>📝 Résoudre un exercice étape par étape</li>
+        <li>📚 Expliquer une leçon</li>
+        <li>📌 Faire un résumé</li>
+        <li>✅ Corriger une réponse</li>
+        <li>🧠 Donner une méthode de résolution</li>
+      </ul>
+
+      <p>
+        Écris simplement ta question ci-dessous.
+      </p>
+
+    </div>
+
+    <div id="typing" class="typing">
+      <span></span>
+      <span></span>
+      <span></span>
+      <span>Sterling IA réfléchit...</span>
+    </div>
+
+  </main>
+
+  <!-- COMPOSER -->
+  <section class="composer-area">
+
+    <div class="composer">
+
+      <textarea
+        id="messageInput"
+        placeholder="Écris ton exercice ou ta question..."
+        aria-label="Message"
+      ></textarea>
+
+      <button
+        id="sendButton"
+        class="send"
+        type="button"
+        aria-label="Envoyer"
+      >
+        ➤
+      </button>
+
+    </div>
+
+    <div class="bottom-info">
+
+      <span id="modeInfo">
+        Mode : Devoir
+      </span>
+
+      <button
+        id="clearButton"
+        class="clear-btn"
+        type="button"
+      >
+        Effacer la conversation
+      </button>
+
+    </div>
+
+  </section>
+
+</div>
+
+<script>
+  /*
+    IMPORTANT :
+    Cette page est maintenant servie directement par Render.
+
+    On utilise donc le même serveur pour /chat.
+    Cela évite les problèmes de POST provenant de l'aperçu
+    de l'éditeur mobile.
+  */
+
+  const AI_SERVER = "";
+
+  let currentMode = "devoir";
+  let busy = false;
+
+  const chat = document.getElementById("chat");
+  const welcome = document.getElementById("welcome");
+  const typing = document.getElementById("typing");
+  const input = document.getElementById("messageInput");
+  const sendButton = document.getElementById("sendButton");
+  const clearButton = document.getElementById("clearButton");
+
+  const levelSelect = document.getElementById("level");
+  const subjectSelect = document.getElementById("subject");
+
+  const statusDot = document.getElementById("statusDot");
+  const statusText = document.getElementById("statusText");
+  const modeInfo = document.getElementById("modeInfo");
+
+  /* --------------------------------------------
+     UTILITAIRES
+  -------------------------------------------- */
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function scrollToBottom() {
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function addMessage(text, type = "assistant") {
+    const row = document.createElement("div");
+
+    row.className = "message-row " + (
+      type === "user" ? "user" : ""
+    );
+
+    const bubble = document.createElement("div");
+
+    bubble.className = "message " + type;
+
+    bubble.innerHTML = escapeHtml(text);
+
+    row.appendChild(bubble);
+    chat.insertBefore(row, typing);
+
+    scrollToBottom();
+
+    return bubble;
+  }
+
+  function addError(text) {
+    const row = document.createElement("div");
+    row.className = "message-row";
+
+    const bubble = document.createElement("div");
+    bubble.className = "message error";
+
+    bubble.innerHTML = escapeHtml(text);
+
+    row.appendChild(bubble);
+    chat.insertBefore(row, typing);
+
+    scrollToBottom();
+  }
+
+  function setBusy(value) {
+    busy = value;
+
+    sendButton.disabled = value;
+    input.disabled = value;
+
+    if (value) {
+      typing.classList.add("show");
+    } else {
+      typing.classList.remove("show");
+    }
+  }
+
+  /* --------------------------------------------
+     INSTRUCTION PÉDAGOGIQUE
+  -------------------------------------------- */
+
+  function buildSystemInstruction() {
+
+    const level = levelSelect.value;
+    const subject = subjectSelect.value;
+
+    const modeNames = {
+      devoir: "résolution de devoir",
+      cours: "explication de cours",
+      resume: "résumé",
+      correction: "correction",
+      methode: "méthode de travail"
+    };
+
+    const modeName = modeNames[currentMode] || "aide scolaire";
+
+    return `
+Tu es Sterling IA, un assistant pédagogique.
+
+Tu aides l'utilisateur à apprendre et à comprendre.
+
+Niveau :
+${level}
+
+Matière :
+${subject}
+
+Mode :
+${modeName}
+
+Consignes :
+
+- Réponds en français sauf demande contraire.
+- Sois clair, précis et pédagogique.
+- Adapte ton vocabulaire au niveau indiqué.
+- Ne donne pas uniquement le résultat lorsqu'une explication est demandée.
+- Pour les mathématiques, montre les calculs étape par étape.
+- Pour les sciences, explique les notions avant d'utiliser les formules.
+- Pour une correction, explique les erreurs et comment les corriger.
+- Pour un résumé, garde uniquement les informations importantes.
+- Pour une méthode, donne une procédure numérotée.
+- Utilise des exemples simples lorsque cela aide.
+- Si une information manque, demande ou signale ce qui manque au lieu d'inventer.
+- Termine par une réponse claire.
+
+Ton objectif principal est de permettre à l'utilisateur de comprendre la solution.
+`;
+  }
+
+  /* --------------------------------------------
+     EXTRACTION RÉPONSE IA
+  -------------------------------------------- */
+
+  function extractOutput(data) {
+
+    if (!data) {
+      return "";
+    }
+
+    if (typeof data.output === "string") {
+      return data.output;
+    }
+
+    if (data.output && typeof data.output.text === "string") {
+      return data.output.text;
+    }
+
+    if (data.output && typeof data.output.content === "string") {
+      return data.output.content;
+    }
+
+    if (Array.isArray(data.output)) {
+      return data.output
+        .map(item => {
+          if (typeof item === "string") return item;
+
+          if (item && typeof item.text === "string") {
+            return item.text;
+          }
+
+          if (item && typeof item.content === "string") {
+            return item.content;
+          }
+
+          return "";
+        })
+        .filter(Boolean)
+        .join("\n");
+    }
+
+    if (typeof data.text === "string") {
+      return data.text;
+    }
+
+    if (typeof data.response === "string") {
+      return data.response;
+    }
+
+    if (data.data) {
+      return extractOutput(data.data);
+    }
+
+    return "";
+  }
+
+  /* --------------------------------------------
+     ENVOI MESSAGE
+  -------------------------------------------- */
+
+  async function sendMessage(customText = null) {
+
+    if (busy) {
+      return;
+    }
+
+    const text = customText !== null
+      ? String(customText).trim()
+      : input.value.trim();
+
+    if (!text) {
+      return;
+    }
+
+    welcome.style.display = "none";
+
+    addMessage(text, "user");
+
+    if (customText === null) {
+      input.value = "";
+    }
+
+    setBusy(true);
+
+    try {
+
+      const payload = {
+        message: text,
+
+        system: buildSystemInstruction(),
+
+        mode: currentMode,
+
+        level: levelSelect.value,
+
+        subject: subjectSelect.value
+      };
+
+      const response = await fetch(
+        AI_SERVER + "/chat",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify(payload)
+        }
+      );
+
+      const raw = await response.text();
+
+      let data = null;
+
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+
+        const serverMessage =
+          data?.message ||
+          data?.error ||
+          raw ||
+          `Erreur HTTP ${response.status}`;
+
+        throw new Error(
+          `Erreur serveur (${response.status}) : ${serverMessage}`
+        );
+      }
+
+      const answer = extractOutput(data);
+
+      if (!answer) {
+        throw new Error(
+          "Le serveur a répondu, mais aucune réponse IA n'a été trouvée."
+        );
+      }
+
+      addMessage(answer, "assistant");
+
+    } catch (error) {
+
+      console.error("Sterling IA:", error);
+
+      addError(
+        "❌ Sterling IA n'a pas pu répondre.\n\n" +
+        (error?.message || "Erreur inconnue.")
+      );
+
+    } finally {
+
+      setBusy(false);
+      input.focus();
+    }
+  }
+
+  /* --------------------------------------------
+     MODES
+  -------------------------------------------- */
+
+  document.querySelectorAll(".mode-btn").forEach(button => {
+
+    button.addEventListener("click", () => {
+
+      document.querySelectorAll(".mode-btn")
+        .forEach(btn => btn.classList.remove("active"));
+
+      button.classList.add("active");
+
+      currentMode = button.dataset.mode;
+
+      const labels = {
+        devoir: "Devoir",
+        cours: "Cours",
+        resume: "Résumé",
+        correction: "Correction",
+        methode: "Méthode"
+      };
+
+      modeInfo.textContent =
+        "Mode : " + (labels[currentMode] || currentMode);
+    });
+
+  });
+
+  /* --------------------------------------------
+     ACTIONS RAPIDES
+  -------------------------------------------- */
+
+  document.querySelectorAll(".quick button").forEach(button => {
+
+    button.addEventListener("click", () => {
+
+      const question = button.dataset.question;
+
+      if (question) {
+        input.value = question;
+        input.focus();
+      }
+
+    });
+
+  });
+
+  /* --------------------------------------------
+     BOUTON ENVOYER
+  -------------------------------------------- */
+
+  sendButton.addEventListener("click", () => {
+    sendMessage();
+  });
+
+  /* --------------------------------------------
+     ENTRÉE CLAVIER
+  -------------------------------------------- */
+
+  input.addEventListener("keydown", event => {
+
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      sendMessage();
+    }
+
+  });
+
+  /* --------------------------------------------
+     EFFACER
+  -------------------------------------------- */
+
+  clearButton.addEventListener("click", () => {
+
+    const messages =
+      chat.querySelectorAll(".message-row");
+
+    messages.forEach(row => row.remove());
+
+    welcome.style.display = "block";
+
+    input.value = "";
+    input.focus();
+
+  });
+
+  /* --------------------------------------------
+     TEST DU SERVEUR
+  -------------------------------------------- */
+
+  async function checkServer() {
+
+    try {
+
+      const response = await fetch(
+        AI_SERVER + "/",
+        {
+          method: "GET",
+          cache: "no-store"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "HTTP " + response.status
+        );
+      }
+
+      const data = await response.json();
+
+      if (data.ok) {
+
+        statusDot.classList.add("online");
+        statusText.textContent = "IA disponible";
+
+      } else {
+
+        statusDot.classList.add("error");
+        statusText.textContent = "Serveur disponible";
+
+      }
+
+    } catch (error) {
+
+      console.error("Test serveur:", error);
+
+      statusDot.classList.add("error");
+      statusText.textContent = "Serveur inaccessible";
+    }
+  }
+
+  /* --------------------------------------------
+     INITIALISATION
+  -------------------------------------------- */
+
+  checkServer();
+
+  input.focus();
+
+</script>
+
+</body>
+  </html>
