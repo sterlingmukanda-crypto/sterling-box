@@ -1,108 +1,88 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { fal } from "@fal-ai/client";
-
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-// --------------------------------------------------
-// CHEMINS
-// --------------------------------------------------
+import path from "path";
+import { fileURLToPath } from "url";
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --------------------------------------------------
-// CONFIGURATION
-// --------------------------------------------------
+const app = express();
+const PORT = process.env.PORT || 10000;
 
-const IMAGE_MODEL = "fal-ai/flux-2/klein/9b/edit";
-const STUDY_MODEL = "fal-ai/bytedance/seed/v2/mini";
+const TEXT_MODEL = "gemini-3.8-flash";
+const IMAGE_MODEL = "gemini-3.1-flash-image";
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type"],
-  })
-);
-
-app.use(express.json({ limit: "10mb" }));
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024,
-  },
+    fileSize: 10 * 1024 * 1024
+  }
 });
 
-// --------------------------------------------------
-// LOGS DE REQUÊTES
-// --------------------------------------------------
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "OPTIONS"]
+}));
+
+app.use(express.json({ limit: "10mb" }));
 
 app.use((req, res, next) => {
   console.log(
-    "REQUEST:",
-    req.method,
-    req.originalUrl,
-    "origin:",
-    req.headers.origin || "none"
+    `REQUEST: ${req.method} ${req.url} origin: ${req.headers.origin || "-"}`
   );
   next();
 });
 
-// --------------------------------------------------
-// FICHIERS HTML
-// --------------------------------------------------
+/* =========================
+   PAGES
+========================= */
 
-// Sterling IA
 app.get("/assistant.html", (req, res) => {
   res.sendFile(path.join(__dirname, "assistant.html"));
 });
 
-// Sterling Image
 app.get("/image.html", (req, res) => {
   res.sendFile(path.join(__dirname, "image.html"));
 });
 
-// --------------------------------------------------
-// PAGE PRINCIPALE / TEST SERVEUR
-// --------------------------------------------------
+/* =========================
+   ROOT
+========================= */
 
 app.get("/", (req, res) => {
   res.json({
     ok: true,
     service: "Sterling Box AI",
+    textModel: TEXT_MODEL,
     imageModel: IMAGE_MODEL,
-    studyModel: STUDY_MODEL,
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
     routes: {
       assistant: "/assistant.html",
       image: "/image.html",
       chat: "/chat",
-      transform: "/transform",
-    },
+      transform: "/transform"
+    }
   });
 });
 
-// --------------------------------------------------
-// TEST GET /chat
-// --------------------------------------------------
+/* =========================
+   CHAT
+========================= */
 
 app.get("/chat", (req, res) => {
   res.json({
     ok: true,
     route: "/chat",
-    method: "GET",
-    message: "La route Sterling IA fonctionne sur Render.",
+    model: TEXT_MODEL,
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY)
   });
 });
-
-// --------------------------------------------------
-// STERLING IA — ÉTUDES & DEVOIRS
-// --------------------------------------------------
 
 app.post("/chat", async (req, res) => {
   console.log("======================================");
@@ -110,147 +90,104 @@ app.post("/chat", async (req, res) => {
   console.log("======================================");
 
   try {
-    // Vérification de la clé
-    if (!process.env.FAL_KEY) {
-      console.error("FAL_KEY absente.");
+    if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
         ok: false,
-        error: "FAL_KEY_MISSING",
-        message: "La clé FAL_KEY n'est pas configurée sur Render.",
+        message: "GEMINI_API_KEY est absente de Render."
       });
     }
 
     const {
       message,
-      system,
+      system = "",
       mode = "devoir",
       level = "Autre",
+      subject = "Général"
     } = req.body || {};
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({
+        ok: false,
+        message: "Message vide."
+      });
+    }
 
     console.log("Mode:", mode);
     console.log("Niveau:", level);
+    console.log("Matière:", subject);
     console.log("Message:", message);
+    console.log("Modèle:", TEXT_MODEL);
 
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({
-        ok: false,
-        error: "MESSAGE_MISSING",
-        message: "Le message est vide.",
-      });
-    }
+    const pedagogicalPrompt = `
+Tu es Sterling IA, un assistant pédagogique.
 
-    // ------------------------------------------------
-    // INSTRUCTIONS PÉDAGOGIQUES
-    // ------------------------------------------------
+Ton rôle est d'aider les élèves à comprendre leurs cours,
+leurs exercices et leurs devoirs.
 
-    const defaultSystemPrompt = `
-Tu es Sterling IA, un assistant pédagogique spécialisé dans les études.
+Niveau scolaire : ${level}
+Matière : ${subject}
+Mode : ${mode}
 
-Ton rôle est d'aider l'élève à comprendre réellement ses cours et ses exercices.
+Consignes :
+- Réponds en français sauf si l'utilisateur demande une autre langue.
+- Explique clairement et progressivement.
+- Pour un exercice, montre les étapes du raisonnement.
+- Ne donne pas seulement la réponse finale lorsqu'une explication est demandée.
+- Utilise des exemples simples lorsque cela aide.
+- Adapte ton vocabulaire au niveau scolaire.
+- Si l'élève fait une erreur, explique-la calmement.
+- Sois précis et pédagogique.
 
-Niveau de l'élève : ${level}
-Mode demandé : ${mode}
-
-Règles :
-
-1. Réponds en français sauf si l'utilisateur demande une autre langue.
-
-2. Explique les choses simplement et progressivement.
-
-3. Pour un exercice de mathématiques ou de sciences :
-   - identifie les données ;
-   - explique la formule ou la méthode ;
-   - fais les calculs étape par étape ;
-   - donne le résultat final ;
-   - vérifie rapidement la cohérence du résultat.
-
-4. Ne saute pas directement au résultat lorsque l'utilisateur demande une explication.
-
-5. Si une notion est difficile, donne un petit exemple simple.
-
-6. Pour une correction :
-   - indique ce qui est correct ;
-   - explique les erreurs ;
-   - montre comment améliorer la réponse.
-
-7. Pour un résumé :
-   - conserve les idées essentielles ;
-   - utilise des titres et des listes lorsque cela aide.
-
-8. Pour une méthode :
-   - donne une procédure claire ;
-   - numérote les étapes.
-
-9. Si la question est ambiguë, explique ce qui manque au lieu d'inventer des informations.
-
-10. Le niveau d'explication doit correspondre au niveau scolaire indiqué.
-
-Sois précis, pédagogique, clair et encourage l'apprentissage.
+${system || ""}
 `;
 
-    const systemPrompt =
-      typeof system === "string" && system.trim()
-        ? system
-        : defaultSystemPrompt;
-
-    // ------------------------------------------------
-    // APPEL FAL.AI
-    // ------------------------------------------------
-
-    console.log("Appel du modèle:", STUDY_MODEL);
-
-    const result = await fal.subscribe(STUDY_MODEL, {
-      input: {
-        prompt: message,
-        system_prompt: systemPrompt,
-        max_completion_tokens: 4096,
-        temperature: 0.4,
-      },
-
-      logs: true,
-
-      onQueueUpdate(update) {
-        console.log("FAL QUEUE:", update.status || "update");
-      },
+    const interaction = await ai.interactions.create({
+      model: TEXT_MODEL,
+      input: [
+        {
+          type: "text",
+          text: pedagogicalPrompt
+        },
+        {
+          type: "text",
+          text: String(message)
+        }
+      ]
     });
 
-    console.log("Réponse FAL reçue.");
+    const output = interaction.output_text || "";
 
-    const output = result?.data?.output;
+    console.log("Réponse Gemini reçue.");
+    console.log("Longueur:", output.length);
 
     if (!output) {
-      console.error("Réponse FAL sans output:", result);
-
       return res.status(502).json({
         ok: false,
-        error: "EMPTY_AI_RESPONSE",
-        message: "Sterling IA n'a reçu aucune réponse du modèle.",
+        message: "Gemini n'a retourné aucune réponse."
       });
     }
-
-    console.log("Sterling IA répond correctement.");
 
     return res.json({
       ok: true,
       output,
+      model: TEXT_MODEL
     });
+
   } catch (error) {
     console.error("ERREUR /chat:");
     console.error(error);
 
     return res.status(500).json({
       ok: false,
-      error: "CHAT_ERROR",
-      message:
-        error?.message ||
-        "Une erreur est survenue pendant la communication avec Sterling IA.",
+      message: error?.message || "Erreur Gemini.",
+      status: error?.status || null
     });
   }
 });
 
-// --------------------------------------------------
-// STERLING IMAGE
-// --------------------------------------------------
+/* =========================
+   IMAGE
+========================= */
 
 app.post("/transform", upload.single("image"), async (req, res) => {
   console.log("======================================");
@@ -258,149 +195,129 @@ app.post("/transform", upload.single("image"), async (req, res) => {
   console.log("======================================");
 
   try {
-    if (!process.env.FAL_KEY) {
-      console.error("FAL_KEY absente.");
-
+    if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
         ok: false,
-        error: "FAL_KEY_MISSING",
-        message: "La clé FAL_KEY n'est pas configurée sur Render.",
+        message: "GEMINI_API_KEY est absente de Render."
       });
     }
 
     if (!req.file) {
       return res.status(400).json({
         ok: false,
-        error: "IMAGE_MISSING",
-        message: "Aucune image n'a été envoyée.",
+        message: "Aucune image reçue."
       });
     }
 
-    const prompt =
+    const prompt = String(
       req.body?.prompt ||
-      "Improve and transform this image while preserving the main subject.";
+      "Améliore cette image naturellement en conservant ses éléments importants."
+    );
 
-    console.log("Prompt image:", prompt);
-    console.log("Taille image:", req.file.size);
+    console.log("Image reçue:", req.file.originalname);
+    console.log("Type:", req.file.mimetype);
+    console.log("Prompt:", prompt);
+    console.log("Modèle:", IMAGE_MODEL);
 
-    // Conversion en Data URI
-    const mimeType = req.file.mimetype || "image/jpeg";
-    const base64 = req.file.buffer.toString("base64");
-    const dataUri = `data:${mimeType};base64,${base64}`;
+    const base64Image = req.file.buffer.toString("base64");
 
-    console.log("Appel du modèle image:", IMAGE_MODEL);
-
-    const result = await fal.subscribe(IMAGE_MODEL, {
-      input: {
-        image_urls: [dataUri],
-        prompt,
-      },
-
-      logs: true,
-
-      onQueueUpdate(update) {
-        console.log("FAL IMAGE QUEUE:", update.status || "update");
-      },
+    const interaction = await ai.interactions.create({
+      model: IMAGE_MODEL,
+      input: [
+        {
+          type: "image",
+          mime_type: req.file.mimetype,
+          data: base64Image
+        },
+        {
+          type: "text",
+          text: prompt
+        }
+      ]
     });
 
-    console.log("Réponse image FAL reçue.");
+    let generatedImage = null;
 
-    const data = result?.data;
+    for (const step of interaction.steps || []) {
+      if (step.type !== "model_output") {
+        continue;
+      }
 
-    if (!data) {
-      console.error("Réponse image vide:", result);
+      for (const contentBlock of step.content || []) {
+        if (contentBlock.type === "image") {
+          generatedImage = contentBlock;
+        }
+      }
+    }
+
+    if (!generatedImage?.data) {
+      console.error("Aucune image générée par Gemini.");
 
       return res.status(502).json({
         ok: false,
-        error: "EMPTY_IMAGE_RESPONSE",
-        message: "Le modèle image n'a retourné aucun résultat.",
+        message: "Gemini n'a retourné aucune image."
       });
     }
 
-    // ------------------------------------------------
-    // Recherche de l'URL générée
-    // ------------------------------------------------
-
-    let imageUrl = null;
-
-    if (Array.isArray(data.images) && data.images.length > 0) {
-      imageUrl = data.images[0]?.url || null;
-    }
-
-    if (!imageUrl && data.image?.url) {
-      imageUrl = data.image.url;
-    }
-
-    if (!imageUrl && data.output?.url) {
-      imageUrl = data.output.url;
-    }
-
-    if (!imageUrl && typeof data.output === "string") {
-      imageUrl = data.output;
-    }
-
-    if (!imageUrl) {
-      console.error("Impossible de trouver l'image:", data);
-
-      return res.status(502).json({
-        ok: false,
-        error: "IMAGE_URL_MISSING",
-        message: "Le modèle a répondu mais aucune image n'a été trouvée.",
-        data,
-      });
-    }
-
-    console.log("Image générée avec succès.");
+    console.log("Image Gemini reçue.");
 
     return res.json({
       ok: true,
-      imageUrl,
-      data,
+      model: IMAGE_MODEL,
+      image: `data:${generatedImage.mime_type || "image/png"};base64,${generatedImage.data}`
     });
+
   } catch (error) {
     console.error("ERREUR /transform:");
     console.error(error);
 
     return res.status(500).json({
       ok: false,
-      error: "TRANSFORM_ERROR",
-      message:
-        error?.message ||
-        "Une erreur est survenue pendant la transformation de l'image.",
+      message: error?.message || "Erreur Gemini Image.",
+      status: error?.status || null
     });
   }
 });
 
-// --------------------------------------------------
-// ERREUR MULTER
-// --------------------------------------------------
+/* =========================
+   MULTER / SERVER ERRORS
+========================= */
 
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
-    console.error("Erreur Multer:", error);
-
     return res.status(400).json({
       ok: false,
-      error: "UPLOAD_ERROR",
-      message: error.message,
+      message: `Erreur fichier : ${error.message}`
     });
   }
 
-  next(error);
+  console.error("ERREUR SERVEUR:");
+  console.error(error);
+
+  return res.status(500).json({
+    ok: false,
+    message: error?.message || "Erreur serveur."
+  });
 });
 
-// --------------------------------------------------
-// DÉMARRAGE
-// --------------------------------------------------
+/* =========================
+   START
+========================= */
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("======================================");
   console.log("STERLING BOX AI");
   console.log("======================================");
-  console.log(`Port: ${PORT}`);
-  console.log(`Assistant: /assistant.html`);
-  console.log(`Image: /image.html`);
-  console.log(`Chat: /chat`);
-  console.log(`Transform: /transform`);
+  console.log("Port:", PORT);
+  console.log("Assistant: /assistant.html");
+  console.log("Image: /image.html");
+  console.log("Chat: /chat");
+  console.log("Transform: /transform");
+  console.log("Modèle texte:", TEXT_MODEL);
+  console.log("Modèle image:", IMAGE_MODEL);
+  console.log(
+    "GEMINI_API_KEY:",
+    process.env.GEMINI_API_KEY ? "CONFIGURÉE" : "ABSENTE"
+  );
   console.log("Serveur prêt.");
 });
