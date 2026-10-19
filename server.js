@@ -1,161 +1,48 @@
 
-const express = require("express");
-const cors = require("cors");
-const multer = require("multer");
-const path = require("path");
-const { GoogleGenAI } = require("@google/genai");
+import express from "express";
+import cors from "cors";
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
+import { GoogleGenAI } from "@google/genai";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 const TEXT_MODEL = "gemini-3.8-flash";
 const IMAGE_MODEL = "gemini-3.1-flash-image";
 
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
-
-app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_SIZE },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype && file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Le fichier doit être une image."));
-    }
+  limits: {
+    fileSize: 10 * 1024 * 1024
   }
 });
 
-const ai = process.env.GEMINI_API_KEY
-  ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-  : null;
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "OPTIONS"]
+}));
+
+app.use(express.json({ limit: "10mb" }));
+
+app.use((req, res, next) => {
+  console.log(
+    `REQUEST: ${req.method} ${req.url} origin: ${req.headers.origin || "-"}`
+  );
+  next();
+});
 
 /* =========================
-   OUTILS COMMUNS
+   PAGES
 ========================= */
-
-function requireGeminiKey(res) {
-  if (!ai) {
-    res.status(500).json({
-      ok: false,
-      message: "La clé GEMINI_API_KEY n'est pas configurée dans Render."
-    });
-    return false;
-  }
-
-  return true;
-}
-
-function getPedagogicalPrompt(options = {}) {
-  const mode = String(options.mode || "general");
-  const level = String(options.level || "Autre");
-  const subject = String(options.subject || "Autre");
-  const customSystem = String(options.system || "");
-
-  const modeInstructions = {
-    general: "Réponds naturellement, clairement et utilement.",
-    devoir: "Aide l'élève à comprendre son devoir, en expliquant les étapes.",
-    cours: "Explique le cours progressivement avec des exemples simples.",
-    resume: "Fais un résumé fidèle, organisé et facile à retenir.",
-    correction: "Corrige les erreurs et explique pourquoi.",
-    methode: "Résous le problème étape par étape et justifie les calculs.",
-    "compréhension d'image":
-      "Analyse l'image fournie. Décris ce que tu observes réellement. " +
-      "Signale les textes illisibles et les incertitudes. Pour un exercice, " +
-      "explique la méthode étape par étape. Ne prétends pas voir des détails incertains."
-  };
-
-  return [
-    "Tu es Sterling Box IA, un assistant pédagogique et polyvalent.",
-    "Réponds principalement en français, sauf si l'utilisateur demande une autre langue.",
-    "Sois précis, respectueux, clair et adapté au niveau indiqué.",
-    "N'invente pas des informations et indique les incertitudes.",
-    `Niveau : ${level}.`,
-    `Matière : ${subject}.`,
-    modeInstructions[mode] || modeInstructions.general,
-    customSystem
-  ].filter(Boolean).join("\n\n");
-}
-
-function extractOutput(interaction) {
-  if (interaction && typeof interaction.output_text === "string") {
-    return interaction.output_text.trim();
-  }
-
-  return "";
-}
-
-function cleanHistory(history) {
-  if (!Array.isArray(history)) return [];
-
-  return history
-    .filter(item =>
-      item &&
-      ["user", "assistant"].includes(item.role) &&
-      typeof item.content === "string" &&
-      item.content.trim()
-    )
-    .slice(-10)
-    .map(item => ({
-      role: item.role,
-      content: item.content.slice(0, 4000)
-    }));
-}
-
-function buildHistoryText(history) {
-  if (!history.length) return "";
-
-  return "Contexte précédent de la conversation :\n" +
-    history.map(item => {
-      const role = item.role === "user" ? "Utilisateur" : "Sterling IA";
-      return `${role} : ${item.content}`;
-    }).join("\n\n") +
-    "\n\n";
-}
-
-function imageMimeAllowed(mimeType) {
-  return [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/gif"
-  ].includes(String(mimeType || "").toLowerCase());
-}
-
-/* =========================
-   PAGE ET ÉTAT DU SERVEUR
-========================= */
-
-app.get("/", (req, res) => {
-  res.json({
-    ok: true,
-    name: "Sterling Box IA",
-    status: "online",
-    textModel: TEXT_MODEL,
-    imageModel: IMAGE_MODEL,
-    routes: [
-      "GET /",
-      "GET /health",
-      "GET /assistant.html",
-      "GET /image.html",
-      "POST /chat",
-      "POST /understand-image",
-      "POST /transform",
-      "POST /generate-image"
-    ]
-  });
-});
-
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    status: "online",
-    apiConfigured: Boolean(process.env.GEMINI_API_KEY)
-  });
-});
 
 app.get("/assistant.html", (req, res) => {
   res.sendFile(path.join(__dirname, "assistant.html"));
@@ -166,70 +53,119 @@ app.get("/image.html", (req, res) => {
 });
 
 /* =========================
-   CHAT TEXTUEL
+   ROOT
+========================= */
+
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    service: "Sterling Box AI",
+    textModel: TEXT_MODEL,
+    imageModel: IMAGE_MODEL,
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    routes: {
+      assistant: "/assistant.html",
+      image: "/image.html",
+      chat: "/chat",
+      transform: "/transform",
+      understandImage: "/understand-image"
+    }
+  });
+});
+
+/* =========================
+   CHAT
 ========================= */
 
 app.get("/chat", (req, res) => {
   res.json({
     ok: true,
-    message: "La route de chat est disponible.",
-    method: "POST"
+    route: "/chat",
+    model: TEXT_MODEL,
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY)
   });
 });
 
 app.post("/chat", async (req, res) => {
+  console.log("========== STERLING IA /chat ==========");
+
   try {
-    if (!requireGeminiKey(res)) return;
-
-    const message = String(req.body?.message || "").trim();
-
-    if (!message) {
-      return res.status(400).json({
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({
         ok: false,
-        message: "Écris un message avant d'envoyer."
+        message: "GEMINI_API_KEY est absente de Render."
       });
     }
 
-    if (message.length > 20000) {
+    const {
+      message,
+      system = "",
+      mode = "general",
+      level = "adaptatif",
+      subject = "Général",
+      history = []
+    } = req.body || {};
+
+    if (!message || !String(message).trim()) {
       return res.status(400).json({
         ok: false,
-        message: "Le message est trop long."
+        message: "Message vide."
       });
     }
 
-    const history = cleanHistory(req.body?.history);
+    const historyText = Array.isArray(history)
+      ? history
+          .filter(item =>
+            item &&
+            ["user", "assistant"].includes(item.role) &&
+            typeof item.content === "string"
+          )
+          .slice(-12)
+          .map(item =>
+            `${item.role === "user" ? "Utilisateur" : "Sterling Box IA"}: ${item.content}`
+          )
+          .join("\n\n")
+      : "";
 
-    const system = getPedagogicalPrompt({
-      system: req.body?.system,
-      mode: req.body?.mode,
-      level: req.body?.level,
-      subject: req.body?.subject
-    });
+    const prompt = `
+Tu es Sterling Box IA, un assistant utile, clair, respectueux et fiable.
 
-    const context = buildHistoryText(history);
+Réponds en français sauf si l'utilisateur demande une autre langue.
+Explique les étapes quand cela facilite l'apprentissage.
+N'invente pas de faits et indique les incertitudes.
+Adapte tes explications au niveau de l'utilisateur.
+
+Mode : ${mode}
+Niveau : ${level}
+Matière : ${subject}
+
+${system || ""}
+
+Historique récent :
+${historyText || "Aucun historique précédent."}
+
+Nouvelle question :
+${String(message)}
+`;
 
     const interaction = await ai.interactions.create({
       model: TEXT_MODEL,
-      system_instruction: system,
-      input: context +
-        "Nouveau message de l'utilisateur :\n" +
-        message
+      input: prompt
     });
 
-    const output = extractOutput(interaction);
+    const output = interaction.output_text || "";
 
-    if (!output) {
+    if (!output.trim()) {
       return res.status(502).json({
         ok: false,
-        message: "Le modèle n'a renvoyé aucune réponse."
+        message: "Gemini n'a retourné aucune réponse."
       });
     }
 
     return res.json({
       ok: true,
       output,
-      model: TEXT_MODEL,
-      interactionId: interaction.id || null
+      model: TEXT_MODEL
     });
 
   } catch (error) {
@@ -237,109 +173,110 @@ app.post("/chat", async (req, res) => {
 
     return res.status(500).json({
       ok: false,
-      message: error.message || "Une erreur est survenue pendant le chat.",
-      status: error.status || null
+      message: error?.message || "Erreur Gemini.",
+      status: error?.status || null
     });
   }
 });
 
 /* =========================
-   COMPRÉHENSION D'IMAGES
+   ANALYSE D'IMAGE
+   POST /understand-image
+   FormData : image, question
 ========================= */
 
 app.post(
   "/understand-image",
   upload.single("image"),
   async (req, res) => {
+    console.log("========== STERLING IA /understand-image ==========");
+
     try {
-      if (!requireGeminiKey(res)) return;
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({
+          ok: false,
+          message: "GEMINI_API_KEY est absente de Render."
+        });
+      }
 
       if (!req.file) {
         return res.status(400).json({
           ok: false,
-          message: "Aucune image reçue. Choisis une image."
+          message: "Aucune image reçue. Le champ attendu est « image »."
         });
       }
 
-      if (!imageMimeAllowed(req.file.mimetype)) {
+      if (!req.file.mimetype.startsWith("image/")) {
         return res.status(400).json({
           ok: false,
-          message: "Format non pris en charge. Utilise JPEG, PNG ou WebP."
+          message: "Le fichier envoyé n'est pas une image valide."
         });
       }
 
-      const question = String(req.body?.question || "").trim();
+      const question = String(
+        req.body?.question ||
+        "Décris cette image et explique ce qu'elle montre."
+      );
 
-      if (!question) {
-        return res.status(400).json({
-          ok: false,
-          message: "Écris une question sur l'image."
-        });
-      }
+      const system = String(req.body?.system || "");
+      const mode = String(req.body?.mode || "general");
+      const level = String(req.body?.level || "adaptatif");
+      const subject = String(req.body?.subject || "Général");
 
-      if (question.length > 5000) {
-        return res.status(400).json({
-          ok: false,
-          message: "La question est trop longue."
-        });
-      }
+      console.log("Image reçue :", req.file.originalname);
+      console.log("Type :", req.file.mimetype);
+      console.log("Taille :", req.file.size);
+      console.log("Question :", question);
 
-      let history = [];
+      const base64Image = req.file.buffer.toString("base64");
 
-      try {
-        const parsed = JSON.parse(req.body?.history || "[]");
-        history = cleanHistory(parsed);
-      } catch {
-        history = [];
-      }
-
-      const system = getPedagogicalPrompt({
-        system:
-          "Tu peux analyser des images, des exercices photographiés, " +
-          "des documents et des schémas. Décris uniquement ce que tu peux " +
-          "réellement observer. Si un texte est illisible, signale-le. " +
-          "Pour un exercice, explique les étapes progressivement. " +
-          "Ne prétends pas voir des détails incertains.",
-        mode: "compréhension d'image",
-        level: req.body?.level,
-        subject: req.body?.subject
-      });
-
-      const imageData = req.file.buffer.toString("base64");
-      const context = buildHistoryText(history);
-
+      // Utilise un modèle de compréhension multimodale :
+      // le modèle doit pouvoir analyser les images en entrée.
       const interaction = await ai.interactions.create({
         model: TEXT_MODEL,
-        system_instruction: system,
         input: [
           {
             type: "text",
-            text: context +
-              "Analyse l'image jointe et réponds à cette question :\n" +
-              question
+            text: `
+Tu es Sterling Box IA, un assistant capable d'analyser des images.
+
+Mode : ${mode}
+Niveau : ${level}
+Matière : ${subject}
+
+${system}
+
+Examine attentivement l'image fournie et réponds à la question de l'utilisateur :
+${question}
+
+Si l'image contient un exercice scolaire, lis ce qui est visible et explique
+la résolution étape par étape. Si une partie est illisible, indique-le
+plutôt que d'inventer son contenu. Réponds en français sauf demande contraire.
+`
           },
           {
             type: "image",
             mime_type: req.file.mimetype,
-            data: imageData
+            data: base64Image
           }
         ]
       });
 
-      const output = extractOutput(interaction);
+      const output = interaction.output_text || "";
 
-      if (!output) {
+      if (!output.trim()) {
         return res.status(502).json({
           ok: false,
-          message: "Aucune explication n'a été renvoyée pour cette image."
+          message: "Le modèle n'a retourné aucune analyse de l'image."
         });
       }
+
+      console.log("Analyse de l'image terminée.");
 
       return res.json({
         ok: true,
         output,
-        model: TEXT_MODEL,
-        interactionId: interaction.id || null
+        model: TEXT_MODEL
       });
 
     } catch (error) {
@@ -347,9 +284,8 @@ app.post(
 
       return res.status(500).json({
         ok: false,
-        message: error.message ||
-          "Une erreur est survenue pendant l'analyse de l'image.",
-        status: error.status || null
+        message: error?.message || "Erreur lors de l'analyse de l'image.",
+        status: error?.status || null
       });
     }
   }
@@ -357,217 +293,132 @@ app.post(
 
 /* =========================
    TRANSFORMATION D'IMAGE
+   POST /transform
 ========================= */
 
-app.post(
-  "/transform",
-  upload.single("image"),
-  async (req, res) => {
-    try {
-      if (!requireGeminiKey(res)) return;
+app.post("/transform", upload.single("image"), async (req, res) => {
+  console.log("========== STERLING IMAGE /transform ==========");
 
-      if (!req.file) {
-        return res.status(400).json({
-          ok: false,
-          message: "Choisis une image à transformer."
-        });
-      }
-
-      if (!imageMimeAllowed(req.file.mimetype)) {
-        return res.status(400).json({
-          ok: false,
-          message: "Format d'image non pris en charge."
-        });
-      }
-
-      const prompt = String(req.body?.prompt || "").trim();
-
-      if (!prompt) {
-        return res.status(400).json({
-          ok: false,
-          message: "Décris la transformation souhaitée."
-        });
-      }
-
-      if (prompt.length > 4000) {
-        return res.status(400).json({
-          ok: false,
-          message: "La description est trop longue."
-        });
-      }
-
-      const result = await ai.models.generateContent({
-        model: IMAGE_MODEL,
-        contents: [
-          {
-            text:
-              "Modifie l'image fournie selon cette instruction : " +
-              prompt +
-              ". Préserve les éléments non concernés autant que possible."
-          },
-          {
-            inlineData: {
-              mimeType: req.file.mimetype,
-              data: req.file.buffer.toString("base64")
-            }
-          }
-        ],
-        config: {
-          responseModalities: ["TEXT", "IMAGE"]
-        }
-      });
-
-      let image = null;
-      let output = "";
-
-      for (const candidate of result.candidates || []) {
-        for (const part of candidate.content?.parts || []) {
-          if (part.text) output += part.text + "\n";
-
-          const inlineData = part.inlineData;
-
-          if (inlineData?.data && inlineData?.mimeType) {
-            image = `data:${inlineData.mimeType};base64,${inlineData.data}`;
-          }
-        }
-      }
-
-      if (!image) {
-        return res.status(502).json({
-          ok: false,
-          message: output.trim() ||
-            "Le modèle n'a pas renvoyé d'image. Vérifie la disponibilité du modèle de génération d'images."
-        });
-      }
-
-      return res.json({
-        ok: true,
-        output: output.trim(),
-        image,
-        model: IMAGE_MODEL
-      });
-
-    } catch (error) {
-      console.error("ERREUR /transform:", error);
-
+  try {
+    if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({
         ok: false,
-        message: error.message ||
-          "Une erreur est survenue pendant la transformation.",
-        status: error.status || null
+        message: "GEMINI_API_KEY est absente de Render."
       });
     }
-  }
-);
 
-/* =========================
-   GÉNÉRATION D'IMAGE
-========================= */
-
-app.post("/generate-image", async (req, res) => {
-  try {
-    if (!requireGeminiKey(res)) return;
-
-    const prompt = String(req.body?.prompt || "").trim();
-
-    if (!prompt) {
+    if (!req.file) {
       return res.status(400).json({
         ok: false,
-        message: "Décris l'image que tu veux créer."
+        message: "Aucune image reçue."
       });
     }
 
-    if (prompt.length > 4000) {
+    if (!req.file.mimetype.startsWith("image/")) {
       return res.status(400).json({
         ok: false,
-        message: "La description est trop longue."
+        message: "Le fichier fourni n'est pas une image valide."
       });
     }
 
-    const result = await ai.models.generateContent({
+    const prompt = String(
+      req.body?.prompt ||
+      "Améliore cette image naturellement en conservant ses éléments importants."
+    );
+
+    const base64Image = req.file.buffer.toString("base64");
+
+    const interaction = await ai.interactions.create({
       model: IMAGE_MODEL,
-      contents: prompt,
-      config: {
-        responseModalities: ["TEXT", "IMAGE"]
-      }
+      input: [
+        {
+          type: "image",
+          mime_type: req.file.mimetype,
+          data: base64Image
+        },
+        {
+          type: "text",
+          text: prompt
+        }
+      ]
     });
 
-    let image = null;
-    let output = "";
+    let generatedImage = null;
 
-    for (const candidate of result.candidates || []) {
-      for (const part of candidate.content?.parts || []) {
-        if (part.text) output += part.text + "\n";
+    for (const step of interaction.steps || []) {
+      if (step.type !== "model_output") continue;
 
-        const inlineData = part.inlineData;
-
-        if (inlineData?.data && inlineData?.mimeType) {
-          image = `data:${inlineData.mimeType};base64,${inlineData.data}`;
+      for (const contentBlock of step.content || []) {
+        if (contentBlock.type === "image") {
+          generatedImage = contentBlock;
         }
       }
     }
 
-    if (!image) {
+    if (!generatedImage?.data) {
       return res.status(502).json({
         ok: false,
-        message: output.trim() ||
-          "Le modèle n'a pas renvoyé d'image. Vérifie la disponibilité de ce modèle pour ton compte."
+        message: "Le modèle n'a retourné aucune image générée."
       });
     }
 
     return res.json({
       ok: true,
-      output: output.trim(),
-      image,
-      model: IMAGE_MODEL
+      model: IMAGE_MODEL,
+      image: `data:${generatedImage.mime_type || "image/png"};base64,${generatedImage.data}`
     });
 
   } catch (error) {
-    console.error("ERREUR /generate-image:", error);
+    console.error("ERREUR /transform:", error);
 
     return res.status(500).json({
       ok: false,
-      message: error.message ||
-        "Une erreur est survenue pendant la génération de l'image.",
-      status: error.status || null
+      message: error?.message || "Erreur Gemini Image.",
+      status: error?.status || null
     });
   }
 });
 
 /* =========================
-   GESTION DES ERREURS
+   ERREURS MULTER / SERVEUR
 ========================= */
 
 app.use((error, req, res, next) => {
-  if (res.headersSent) return next(error);
-
   if (error instanceof multer.MulterError) {
-    const message = error.code === "LIMIT_FILE_SIZE"
-      ? "L'image dépasse la limite de 10 Mo."
-      : "Le fichier envoyé n'a pas pu être traité.";
-
     return res.status(400).json({
       ok: false,
-      message
+      message: `Erreur fichier : ${error.message}`
     });
   }
 
   console.error("ERREUR SERVEUR:", error);
 
-  return res.status(400).json({
+  return res.status(500).json({
     ok: false,
-    message: error.message || "La requête n'a pas pu être traitée."
+    message: error?.message || "Erreur serveur."
   });
 });
 
 /* =========================
-   DÉMARRAGE
+   START
 ========================= */
 
-app.listen(PORT, () => {
-  console.log(`Sterling Box IA écoute sur le port ${PORT}`);
-  console.log(`Modèle texte : ${TEXT_MODEL}`);
-  console.log(`Modèle image : ${IMAGE_MODEL}`);
-  console.log(`Clé Gemini configurée : ${Boolean(process.env.GEMINI_API_KEY)}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("======================================");
+  console.log("STERLING BOX AI");
+  console.log("======================================");
+  console.log("Port :", PORT);
+  console.log("Assistant :", "/assistant.html");
+  console.log("Image :", "/image.html");
+  console.log("Chat :", "/chat");
+  console.log("Analyse d'image :", "/understand-image");
+  console.log("Transformation :", "/transform");
+  console.log("Modèle texte :", TEXT_MODEL);
+  console.log("Modèle image :", IMAGE_MODEL);
+  console.log(
+    "GEMINI_API_KEY :",
+    process.env.GEMINI_API_KEY ? "CONFIGURÉE" : "ABSENTE"
+  );
+  console.log("Serveur prêt.");
 });
   
