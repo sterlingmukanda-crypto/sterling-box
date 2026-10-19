@@ -1,1061 +1,596 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sterling IA — Études & Devoirs</title>
-
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    :root {
-      --bg: #080b12;
-      --panel: #101521;
-      --panel2: #151c2b;
-      --border: #273044;
-      --text: #f4f7fb;
-      --muted: #98a3b8;
-      --accent: #6d7cff;
-      --accent2: #4f61ff;
-      --success: #35d07f;
-      --danger: #ff5964;
-      --user: #26356f;
-      --assistant: #151c2b;
-    }
-
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-      min-height: 100vh;
-    }
-
-    button,
-    select,
-    textarea,
-    input {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    .app {
-      width: 100%;
-      max-width: 1100px;
-      margin: auto;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* HEADER */
-
-    header {
-      padding: 18px 16px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(8, 11, 18, 0.96);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .header-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 13px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, var(--accent), #8c63ff);
-      font-size: 22px;
-      box-shadow: 0 8px 25px rgba(80, 90, 255, .25);
-    }
-
-    .brand h1 {
-      font-size: 19px;
-      margin: 0 0 3px;
-    }
-
-    .brand p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .status {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-
-    .status-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: #777;
-    }
-
-    .status-dot.online {
-      background: var(--success);
-      box-shadow: 0 0 10px rgba(53, 208, 127, .7);
-    }
-
-    .status-dot.error {
-      background: var(--danger);
-    }
-
-    /* CONFIG */
-
-    .config {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      background: var(--panel);
-    }
-
-    .field label {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    select {
-      width: 100%;
-      min-height: 42px;
-      padding: 8px 11px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--text);
-      background: var(--panel2);
-      outline: none;
-    }
-
-    select:focus {
-      border-color: var(--accent);
-    }
-
-    /* MODES */
-
-    .modes {
-      padding: 12px 16px;
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      border-bottom: 1px solid var(--border);
-      scrollbar-width: thin;
-    }
-
-    .mode-btn {
-      flex: 0 0 auto;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--muted);
-      padding: 9px 13px;
-      border-radius: 999px;
-      font-size: 13px;
-    }
-
-    .mode-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-    }
-
-    /* QUICK ACTIONS */
-
-    .quick {
-      padding: 12px 16px;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .quick button {
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 9px;
-      font-size: 12px;
-    }
-
-    .quick button:hover {
-      border-color: var(--accent);
-    }
-
-    /* CHAT */
-
-    .chat {
-      flex: 1;
-      padding: 20px 16px;
-      overflow-y: auto;
-    }
-
-    .welcome {
-      max-width: 720px;
-      margin: 20px auto;
-      padding: 24px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-    }
-
-    .welcome h2 {
-      margin-top: 0;
-      font-size: 21px;
-    }
-
-    .welcome p {
-      color: var(--muted);
-      line-height: 1.6;
-    }
-
-    .welcome ul {
-      color: var(--muted);
-      line-height: 1.7;
-    }
-
-    .message-row {
-      display: flex;
-      margin: 12px 0;
-    }
-
-    .message-row.user {
-      justify-content: flex-end;
-    }
-
-    .message {
-      max-width: min(820px, 90%);
-      padding: 13px 15px;
-      border-radius: 15px;
-      line-height: 1.55;
-      font-size: 14px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
-
-    .message.user {
-      background: var(--user);
-      border-bottom-right-radius: 4px;
-    }
-
-    .message.assistant {
-      background: var(--assistant);
-      border: 1px solid var(--border);
-      border-bottom-left-radius: 4px;
-    }
-
-    .message.error {
-      background: rgba(255, 89, 100, .10);
-      border: 1px solid rgba(255, 89, 100, .35);
-      color: #ffb6bb;
-    }
-
-    .message strong {
-      color: white;
-    }
-
-    /* TYPING */
-
-    .typing {
-      display: none;
-      align-items: center;
-      gap: 5px;
-      color: var(--muted);
-      font-size: 12px;
-      margin: 10px 0;
-    }
-
-    .typing.show {
-      display: flex;
-    }
-
-    .typing span {
-      width: 6px;
-      height: 6px;
-      background: var(--accent);
-      border-radius: 50%;
-      animation: bounce 1s infinite alternate;
-    }
-
-    .typing span:nth-child(2) {
-      animation-delay: .15s;
-    }
-
-    .typing span:nth-child(3) {
-      animation-delay: .3s;
-    }
-
-    @keyframes bounce {
-      from {
-        opacity: .3;
-        transform: translateY(0);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(-4px);
-      }
-    }
-
-    /* COMPOSER */
-
-    .composer-area {
-      border-top: 1px solid var(--border);
-      background: var(--panel);
-      padding: 12px 16px 16px;
-      position: sticky;
-      bottom: 0;
-    }
-
-    .composer {
-      display: flex;
-      gap: 9px;
-      align-items: flex-end;
-      max-width: 1000px;
-      margin: auto;
-    }
-
-    textarea {
-      flex: 1;
-      min-height: 48px;
-      max-height: 180px;
-      resize: vertical;
-      border: 1px solid var(--border);
-      background: #0b101a;
-      color: var(--text);
-      border-radius: 13px;
-      padding: 13px;
-      outline: none;
-      line-height: 1.45;
-    }
-
-    textarea:focus {
-      border-color: var(--accent);
-    }
-
-    .send {
-      min-width: 48px;
-      height: 48px;
-      border: 0;
-      border-radius: 13px;
-      background: var(--accent);
-      color: white;
-      font-size: 20px;
-    }
-
-    .send:hover {
-      background: var(--accent2);
-    }
-
-    .send:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-
-    .bottom-info {
-      max-width: 1000px;
-      margin: 7px auto 0;
-      color: var(--muted);
-      font-size: 11px;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .clear-btn {
-      background: transparent;
-      border: 0;
-      color: var(--muted);
-      font-size: 11px;
-      padding: 0;
-    }
-
-    .clear-btn:hover {
-      color: white;
-    }
-
-    /* RESPONSIVE */
-
-    @media (max-width: 650px) {
-      .config {
-        grid-template-columns: 1fr;
-      }
-
-      .header-row {
-        align-items: flex-start;
-      }
-
-      .status {
-        font-size: 10px;
-      }
-
-      .brand h1 {
-        font-size: 17px;
-      }
-
-      .message {
-        max-width: 94%;
-      }
-
-      .welcome {
-        padding: 18px;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sterling IA — Études & Devoirs</title>
+<style>
+:root{--bg:#080b12;--panel:#101521;--panel2:#171e2d;--border:#293248;--text:#f4f6fc;--muted:#9ca8bd;--accent:#7180ff;--user:#293771;--danger:#ff6974;--ok:#35d08a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px Arial,sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{min-height:100dvh;display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1500px;margin:auto}
+.sidebar{background:#0c111c;border-right:1px solid var(--border);padding:15px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 2px 14px}
+.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#7180ff,#9766ff);display:grid;place-items:center;font-size:23px}
+.brand h1{font-size:17px;margin:0 0 4px}.brand p{margin:0;color:var(--muted);font-size:12px}
+.btn{border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 12px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:white}
+.btn.danger{color:#ffb5bb}
+.sidebar .btn{width:100%;text-align:left}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:8px 3px 0}
+.chat-list{display:flex;flex-direction:column;gap:5px;overflow-y:auto;max-height:45vh}
+.chat-item{display:flex;gap:4px;align-items:center}
+.chat-open{min-width:0;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent;color:var(--muted);border:1px solid transparent;border-radius:8px;padding:10px}
+.chat-open.active,.chat-open:hover{background:var(--panel2);border-color:var(--border);color:var(--text)}
+.small-action{background:transparent;color:var(--muted);border:0;border-radius:7px;padding:8px}
+.small-action:hover{background:var(--panel2);color:white}
+.side-note{margin-top:auto;color:var(--muted);font-size:11px;line-height:1.5}
+.main{min-width:0;display:flex;flex-direction:column;min-height:100dvh}
+.topbar{position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 20px;background:#0b1019ed;border-bottom:1px solid var(--border)}
+.top-title{min-width:0}.top-title strong{display:block;font-size:15px;overflow-wrap:anywhere}.top-title span{font-size:12px;color:var(--muted)}
+.status{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#777}.dot.online{background:var(--ok)}.dot.error{background:var(--danger)}
+.config{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--border)}
+.field label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+select{width:100%;min-height:40px;padding:8px;border:1px solid var(--border);border-radius:9px;background:var(--panel2);color:var(--text)}
+.modes,.quick{display:flex;gap:7px;padding:10px 20px;overflow-x:auto;border-bottom:1px solid var(--border)}
+.mode{flex:0 0 auto;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);padding:8px 12px;font-size:12px}
+.mode.active{background:var(--accent);color:white;border-color:var(--accent)}
+.quick{flex-wrap:wrap}.quick button{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px}
+.chat{flex:1;width:100%;max-width:940px;margin:0 auto;padding:20px;overflow-wrap:anywhere}
+.welcome{margin:20px auto;padding:23px;background:var(--panel);border:1px solid var(--border);border-radius:17px;line-height:1.7}
+.welcome h2{margin-top:0}.welcome p,.welcome li{color:var(--muted)}
+.message-row{display:flex;flex-direction:column;align-items:flex-start;margin:16px 0;gap:5px}
+.message-row.user{align-items:flex-end}
+.message{max-width:100%;width:fit-content;padding:13px 15px;border:1px solid var(--border);border-radius:15px;background:var(--panel);line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
+.message.user{background:var(--user);border-color:#394b91;border-bottom-right-radius:4px}
+.message.error{color:#ffb8be;border-color:#8a3b46}
+.message-actions{display:flex;gap:4px;flex-wrap:wrap}
+.message-actions button{background:transparent;color:var(--muted);border:0;font-size:11px;padding:5px 7px;border-radius:6px}
+.message-actions button:hover{background:var(--panel2);color:white}
+.message-image{display:block;max-width:min(100%,440px);max-height:480px;object-fit:contain;border-radius:10px;margin-top:8px}
+.typing{display:none;color:var(--muted);font-size:12px;padding:10px 0}.typing.show{display:block}
+.composer-area{position:sticky;bottom:0;background:#101521f5;border-top:1px solid var(--border);padding:12px 20px 15px;z-index:3}
+.composer-inner{max-width:940px;margin:auto}
+.composer{display:flex;align-items:flex-end;gap:8px}
+textarea{width:100%;min-height:48px;max-height:180px;resize:vertical;padding:13px;border:1px solid var(--border);border-radius:12px;background:#0b1019;color:var(--text);line-height:1.5}
+.send{height:48px;min-width:48px;border:0;border-radius:12px;background:var(--accent);color:white;font-size:20px}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.tools .btn{font-size:12px;padding:8px 10px}
+.bottom-info{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;margin-top:9px}
+.hidden{display:none!important}
+.notice{color:var(--muted);font-size:11px;line-height:1.5;margin:8px 0 0}
+@media(max-width:760px){
+ .app{grid-template-columns:1fr}
+ .sidebar{border-right:0;border-bottom:1px solid var(--border);padding:10px 12px}
+ .brand{padding:0 2px 6px}.logo{width:36px;height:36px}
+ .sidebar-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+ .sidebar-head .brand{flex:1}
+ .sidebar-head #newChat{width:auto;text-align:center}
+ .section-label{margin-top:4px}
+ .chat-list{flex-direction:row;max-height:none;overflow-x:auto}
+ .chat-item{flex:0 0 auto;max-width:240px}
+ .chat-open{max-width:190px}
+ .side-note{display:none}
+ .topbar{padding:12px 14px}
+ .config{padding:10px 14px}
+ .modes,.quick{padding:10px 14px}
+ .chat{padding:14px}
+ .composer-area{padding:10px 12px}
+}
+</style>
 </head>
-
 <body>
-
 <div class="app">
-
-  <!-- HEADER -->
-  <header>
-    <div class="header-row">
-
+  <aside class="sidebar">
+    <div class="sidebar-head">
       <div class="brand">
         <div class="logo">🤖</div>
+        <div><h1>Sterling IA</h1><p>Études &amp; Devoirs</p></div>
+      </div>
+      <button id="newChat" class="btn primary">＋ Nouveau chat</button>
+    </div>
+    <div class="section-label">Mes conversations</div>
+    <div id="chatList" class="chat-list"></div>
+    <button id="renameChat" class="btn">✏️ Renommer ce chat</button>
+    <button id="deleteChat" class="btn danger">🗑️ Supprimer ce chat</button>
+    <div class="side-note">Les conversations sont enregistrées dans ce navigateur. Elles ne sont pas automatiquement synchronisées avec tes autres appareils.</div>
+  </aside>
 
-        <div>
-          <h1>Sterling IA</h1>
-          <p>Études & Devoirs</p>
+  <section class="main">
+    <header class="topbar">
+      <div class="top-title"><strong id="currentTitle">Nouvelle conversation</strong><span id="chatSubtitle">Ton assistant d'apprentissage</span></div>
+      <div class="status"><span id="statusDot" class="dot"></span><span id="statusText">Connexion...</span></div>
+    </header>
+
+    <section class="config">
+      <div class="field"><label for="level">Niveau scolaire</label>
+        <select id="level">
+          <option>Collège</option><option>Lycée</option><option>Université</option><option selected>Autre</option>
+        </select>
+      </div>
+      <div class="field"><label for="subject">Matière</label>
+        <select id="subject">
+          <option>Mathématiques</option><option>Sciences</option><option>Physique</option><option>Chimie</option><option>Français</option><option>Anglais</option><option>Histoire-Géographie</option><option>Informatique</option><option selected>Autre</option>
+        </select>
+      </div>
+    </section>
+
+    <nav class="modes" aria-label="Mode de travail">
+      <button class="mode active" data-mode="devoir">📝 Devoir</button>
+      <button class="mode" data-mode="cours">📚 Cours</button>
+      <button class="mode" data-mode="resume">📌 Résumé</button>
+      <button class="mode" data-mode="correction">✅ Correction</button>
+      <button class="mode" data-mode="methode">🧠 Méthode</button>
+    </nav>
+
+    <div class="quick">
+      <button data-question="Résous cet exercice de mathématiques en expliquant chaque étape.">🔢 Mathématiques</button>
+      <button data-question="Explique cette notion scientifique simplement, puis donne un exemple.">🔬 Sciences</button>
+      <button data-question="Explique-moi cette notion de langue avec des exemples simples.">🌍 Langues</button>
+    </div>
+
+    <main id="chat" class="chat">
+      <div id="welcome" class="welcome">
+        <h2>👋 Bienvenue dans Sterling IA</h2>
+        <p>Pose tes questions, travaille tes exercices et approfondis tes cours.</p>
+        <ul>
+          <li>Comprendre une leçon étape par étape</li>
+          <li>Résoudre un exercice avec explications</li>
+          <li>Résumer ou corriger un texte</li>
+          <li>Dicter une question et écouter une réponse</li>
+        </ul>
+        <p>Crée un nouveau chat pour séparer tes matières et tes projets.</p>
+      </div>
+      <div id="typing" class="typing" aria-live="polite">Sterling IA réfléchit…</div>
+    </main>
+
+    <section class="composer-area">
+      <div class="composer-inner">
+        <div class="composer">
+          <textarea id="messageInput" placeholder="Écris ton exercice ou ta question…" aria-label="Message"></textarea>
+          <button id="sendButton" class="send" aria-label="Envoyer">➤</button>
+        </div>
+        <div class="tools">
+          <button id="micButton" class="btn">🎙️ Dicter</button>
+          <button id="readButton" class="btn">🔊 Lire la dernière réponse</button>
+          <button id="stopAudio" class="btn">⏹ Arrêter la voix</button>
+          <button id="imageButton" class="btn">🖼️ Modifier une photo</button>
+          <button id="generateButton" class="btn">✨ Générer une image</button>
+          <input id="imageInput" type="file" accept="image/*" class="hidden">
+        </div>
+        <p class="notice">Pour la dictée et la lecture vocale, ton navigateur doit prendre en charge ces fonctions. Les photos sont envoyées au serveur pour transformation. La reconnaissance d'image en réponse à une question et l'analyse vidéo nécessitent encore une intégration serveur dédiée.</p>
+        <div class="bottom-info">
+          <span id="modeInfo">Mode : Devoir</span>
+          <button id="clearButton" class="small-action">Effacer les messages de ce chat</button>
         </div>
       </div>
-
-      <div class="status">
-        <span id="statusDot" class="status-dot"></span>
-        <span id="statusText">Connexion...</span>
-      </div>
-
-    </div>
-  </header>
-
-  <!-- CONFIGURATION -->
-  <section class="config">
-
-    <div class="field">
-      <label for="level">Niveau scolaire</label>
-
-      <select id="level">
-        <option value="Collège">Collège</option>
-        <option value="Lycée">Lycée</option>
-        <option value="Université">Université</option>
-        <option value="Autre" selected>Autre</option>
-      </select>
-    </div>
-
-    <div class="field">
-      <label for="subject">Matière</label>
-
-      <select id="subject">
-        <option value="Mathématiques">Mathématiques</option>
-        <option value="Sciences">Sciences</option>
-        <option value="Physique">Physique</option>
-        <option value="Chimie">Chimie</option>
-        <option value="Français">Français</option>
-        <option value="Anglais">Anglais</option>
-        <option value="Histoire-Géographie">Histoire-Géographie</option>
-        <option value="Informatique">Informatique</option>
-        <option value="Autre" selected>Autre</option>
-      </select>
-    </div>
-
+    </section>
   </section>
-
-  <!-- MODES -->
-  <nav class="modes">
-
-    <button class="mode-btn active" data-mode="devoir">
-      📝 Devoir
-    </button>
-
-    <button class="mode-btn" data-mode="cours">
-      📚 Cours
-    </button>
-
-    <button class="mode-btn" data-mode="resume">
-      📌 Résumé
-    </button>
-
-    <button class="mode-btn" data-mode="correction">
-      ✅ Correction
-    </button>
-
-    <button class="mode-btn" data-mode="methode">
-      🧠 Méthode
-    </button>
-
-  </nav>
-
-  <!-- ACTIONS RAPIDES -->
-  <div class="quick">
-
-    <button data-question="Résous cet exercice de mathématiques en expliquant chaque étape.">
-      🔢 Mathématiques
-    </button>
-
-    <button data-question="Explique cette notion scientifique simplement, puis donne un exemple.">
-      🔬 Sciences
-    </button>
-
-    <button data-question="Explique-moi cette notion de langue avec des exemples simples.">
-      🌍 Langues
-    </button>
-
-  </div>
-
-  <!-- CHAT -->
-  <main id="chat" class="chat">
-
-    <div id="welcome" class="welcome">
-
-      <h2>👋 Bienvenue dans Sterling IA</h2>
-
-      <p>
-        Je suis ton assistant pédagogique. Je peux t'aider à comprendre
-        tes cours, résoudre des exercices et corriger tes réponses.
-      </p>
-
-      <ul>
-        <li>📝 Résoudre un exercice étape par étape</li>
-        <li>📚 Expliquer une leçon</li>
-        <li>📌 Faire un résumé</li>
-        <li>✅ Corriger une réponse</li>
-        <li>🧠 Donner une méthode de résolution</li>
-      </ul>
-
-      <p>
-        Écris simplement ta question ci-dessous.
-      </p>
-
-    </div>
-
-    <div id="typing" class="typing">
-      <span></span>
-      <span></span>
-      <span></span>
-      <span>Sterling IA réfléchit...</span>
-    </div>
-
-  </main>
-
-  <!-- COMPOSER -->
-  <section class="composer-area">
-
-    <div class="composer">
-
-      <textarea
-        id="messageInput"
-        placeholder="Écris ton exercice ou ta question..."
-        aria-label="Message"
-      ></textarea>
-
-      <button
-        id="sendButton"
-        class="send"
-        type="button"
-        aria-label="Envoyer"
-      >
-        ➤
-      </button>
-
-    </div>
-
-    <div class="bottom-info">
-
-      <span id="modeInfo">
-        Mode : Devoir
-      </span>
-
-      <button
-        id="clearButton"
-        class="clear-btn"
-        type="button"
-      >
-        Effacer la conversation
-      </button>
-
-    </div>
-
-  </section>
-
 </div>
 
 <script>
-  /*
-    IMPORTANT :
-    Cette page est maintenant servie directement par Render.
+"use strict";
 
-    On utilise donc le même serveur pour /chat.
-    Cela évite les problèmes de POST provenant de l'aperçu
-    de l'éditeur mobile.
-  */
+/* Ne pas changer cette adresse : c'est ton serveur Render existant. */
+const AI_SERVER = "https://sterling-box-ai.onrender.com";
+const STORAGE_KEY = "sterlingBoxChatsV2";
+const MAX_CHATS = 60;
+const MAX_MESSAGES = 250;
 
-  const AI_SERVER = "";
+let currentMode = "devoir";
+let busy = false;
+let editingIndex = null;
+let chats = loadChats();
+let currentChatId = chats[0]?.id || createChatRecord().id;
 
-  let currentMode = "devoir";
-  let busy = false;
+const $ = id => document.getElementById(id);
+const chatArea = $("chat");
+const typing = $("typing");
+const input = $("messageInput");
+const sendButton = $("sendButton");
+const levelSelect = $("level");
+const subjectSelect = $("subject");
 
-  const chat = document.getElementById("chat");
-  const welcome = document.getElementById("welcome");
-  const typing = document.getElementById("typing");
-  const input = document.getElementById("messageInput");
-  const sendButton = document.getElementById("sendButton");
-  const clearButton = document.getElementById("clearButton");
-
-  const levelSelect = document.getElementById("level");
-  const subjectSelect = document.getElementById("subject");
-
-  const statusDot = document.getElementById("statusDot");
-  const statusText = document.getElementById("statusText");
-  const modeInfo = document.getElementById("modeInfo");
-
-  /* --------------------------------------------
-     UTILITAIRES
-  -------------------------------------------- */
-
-  function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+function loadChats() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (!Array.isArray(saved)) return [];
+    return saved.filter(c => c && typeof c.id === "string" && Array.isArray(c.messages))
+      .slice(0, MAX_CHATS).map(c => ({
+        id:c.id,
+        title:String(c.title || "Conversation").slice(0,100),
+        updatedAt:Number(c.updatedAt) || Date.now(),
+        messages:c.messages.slice(-MAX_MESSAGES).filter(m =>
+          m && ["user","assistant","error"].includes(m.role) &&
+          typeof m.content === "string"
+        ).map(m => ({role:m.role,content:m.content.slice(0,20000)}))
+      }));
+  } catch (e) {
+    console.warn("Historique local illisible:",e);
+    return [];
   }
-
-  function scrollToBottom() {
-    chat.scrollTop = chat.scrollHeight;
+}
+function saveChats() {
+  try {
+    chats.sort((a,b) => b.updatedAt - a.updatedAt);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(chats.slice(0,MAX_CHATS)));
+    renderChatList();
+  } catch (e) {
+    alert("Le navigateur ne peut pas enregistrer davantage de conversations. Supprime quelques anciens chats.");
+    console.error(e);
   }
-
-  function addMessage(text, type = "assistant") {
-    const row = document.createElement("div");
-
-    row.className = "message-row " + (
-      type === "user" ? "user" : ""
-    );
-
-    const bubble = document.createElement("div");
-
-    bubble.className = "message " + type;
-
-    bubble.innerHTML = escapeHtml(text);
-
-    row.appendChild(bubble);
-    chat.insertBefore(row, typing);
-
-    scrollToBottom();
-
-    return bubble;
-  }
-
-  function addError(text) {
-    const row = document.createElement("div");
-    row.className = "message-row";
-
-    const bubble = document.createElement("div");
-    bubble.className = "message error";
-
-    bubble.innerHTML = escapeHtml(text);
-
-    row.appendChild(bubble);
-    chat.insertBefore(row, typing);
-
-    scrollToBottom();
-  }
-
-  function setBusy(value) {
-    busy = value;
-
-    sendButton.disabled = value;
-    input.disabled = value;
-
-    if (value) {
-      typing.classList.add("show");
-    } else {
-      typing.classList.remove("show");
-    }
-  }
-
-  /* --------------------------------------------
-     INSTRUCTION PÉDAGOGIQUE
-  -------------------------------------------- */
-
-  function buildSystemInstruction() {
-
-    const level = levelSelect.value;
-    const subject = subjectSelect.value;
-
-    const modeNames = {
-      devoir: "résolution de devoir",
-      cours: "explication de cours",
-      resume: "résumé",
-      correction: "correction",
-      methode: "méthode de travail"
-    };
-
-    const modeName = modeNames[currentMode] || "aide scolaire";
-
-    return `
-Tu es Sterling IA, un assistant pédagogique.
-
-Tu aides l'utilisateur à apprendre et à comprendre.
-
-Niveau :
-${level}
-
-Matière :
-${subject}
-
-Mode :
-${modeName}
-
-Consignes :
-
-- Réponds en français sauf demande contraire.
-- Sois clair, précis et pédagogique.
-- Adapte ton vocabulaire au niveau indiqué.
-- Ne donne pas uniquement le résultat lorsqu'une explication est demandée.
-- Pour les mathématiques, montre les calculs étape par étape.
-- Pour les sciences, explique les notions avant d'utiliser les formules.
-- Pour une correction, explique les erreurs et comment les corriger.
-- Pour un résumé, garde uniquement les informations importantes.
-- Pour une méthode, donne une procédure numérotée.
-- Utilise des exemples simples lorsque cela aide.
-- Si une information manque, demande ou signale ce qui manque au lieu d'inventer.
-- Termine par une réponse claire.
-
-Ton objectif principal est de permettre à l'utilisateur de comprendre la solution.
-`;
-  }
-
-  /* --------------------------------------------
-     EXTRACTION RÉPONSE IA
-  -------------------------------------------- */
-
-  function extractOutput(data) {
-
-    if (!data) {
-      return "";
-    }
-
-    if (typeof data.output === "string") {
-      return data.output;
-    }
-
-    if (data.output && typeof data.output.text === "string") {
-      return data.output.text;
-    }
-
-    if (data.output && typeof data.output.content === "string") {
-      return data.output.content;
-    }
-
-    if (Array.isArray(data.output)) {
-      return data.output
-        .map(item => {
-          if (typeof item === "string") return item;
-
-          if (item && typeof item.text === "string") {
-            return item.text;
-          }
-
-          if (item && typeof item.content === "string") {
-            return item.content;
-          }
-
-          return "";
-        })
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    if (typeof data.text === "string") {
-      return data.text;
-    }
-
-    if (typeof data.response === "string") {
-      return data.response;
-    }
-
-    if (data.data) {
-      return extractOutput(data.data);
-    }
-
-    return "";
-  }
-
-  /* --------------------------------------------
-     ENVOI MESSAGE
-  -------------------------------------------- */
-
-  async function sendMessage(customText = null) {
-
-    if (busy) {
-      return;
-    }
-
-    const text = customText !== null
-      ? String(customText).trim()
-      : input.value.trim();
-
-    if (!text) {
-      return;
-    }
-
-    welcome.style.display = "none";
-
-    addMessage(text, "user");
-
-    if (customText === null) {
-      input.value = "";
-    }
-
-    setBusy(true);
-
-    try {
-
-      const payload = {
-        message: text,
-
-        system: buildSystemInstruction(),
-
-        mode: currentMode,
-
-        level: levelSelect.value,
-
-        subject: subjectSelect.value
-      };
-
-      const response = await fetch(
-        AI_SERVER + "/chat",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json"
-          },
-
-          body: JSON.stringify(payload)
-        }
-      );
-
-      const raw = await response.text();
-
-      let data = null;
-
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        data = null;
-      }
-
-      if (!response.ok) {
-
-        const serverMessage =
-          data?.message ||
-          data?.error ||
-          raw ||
-          `Erreur HTTP ${response.status}`;
-
-        throw new Error(
-          `Erreur serveur (${response.status}) : ${serverMessage}`
-        );
-      }
-
-      const answer = extractOutput(data);
-
-      if (!answer) {
-        throw new Error(
-          "Le serveur a répondu, mais aucune réponse IA n'a été trouvée."
-        );
-      }
-
-      addMessage(answer, "assistant");
-
-    } catch (error) {
-
-      console.error("Sterling IA:", error);
-
-      addError(
-        "❌ Sterling IA n'a pas pu répondre.\n\n" +
-        (error?.message || "Erreur inconnue.")
-      );
-
-    } finally {
-
-      setBusy(false);
-      input.focus();
-    }
-  }
-
-  /* --------------------------------------------
-     MODES
-  -------------------------------------------- */
-
-  document.querySelectorAll(".mode-btn").forEach(button => {
-
-    button.addEventListener("click", () => {
-
-      document.querySelectorAll(".mode-btn")
-        .forEach(btn => btn.classList.remove("active"));
-
-      button.classList.add("active");
-
-      currentMode = button.dataset.mode;
-
-      const labels = {
-        devoir: "Devoir",
-        cours: "Cours",
-        resume: "Résumé",
-        correction: "Correction",
-        methode: "Méthode"
-      };
-
-      modeInfo.textContent =
-        "Mode : " + (labels[currentMode] || currentMode);
-    });
-
-  });
-
-  /* --------------------------------------------
-     ACTIONS RAPIDES
-  -------------------------------------------- */
-
-  document.querySelectorAll(".quick button").forEach(button => {
-
-    button.addEventListener("click", () => {
-
-      const question = button.dataset.question;
-
-      if (question) {
-        input.value = question;
-        input.focus();
-      }
-
-    });
-
-  });
-
-  /* --------------------------------------------
-     BOUTON ENVOYER
-  -------------------------------------------- */
-
-  sendButton.addEventListener("click", () => {
-    sendMessage();
-  });
-
-  /* --------------------------------------------
-     ENTRÉE CLAVIER
-  -------------------------------------------- */
-
-  input.addEventListener("keydown", event => {
-
-    if (
-      event.key === "Enter" &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-      sendMessage();
-    }
-
-  });
-
-  /* --------------------------------------------
-     EFFACER
-  -------------------------------------------- */
-
-  clearButton.addEventListener("click", () => {
-
-    const messages =
-      chat.querySelectorAll(".message-row");
-
-    messages.forEach(row => row.remove());
-
-    welcome.style.display = "block";
-
-    input.value = "";
-    input.focus();
-
-  });
-
-  /* --------------------------------------------
-     TEST DU SERVEUR
-  -------------------------------------------- */
-
-  async function checkServer() {
-
-    try {
-
-      const response = await fetch(
-        AI_SERVER + "/",
-        {
-          method: "GET",
-          cache: "no-store"
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          "HTTP " + response.status
-        );
-      }
-
-      const data = await response.json();
-
-      if (data.ok) {
-
-        statusDot.classList.add("online");
-        statusText.textContent = "IA disponible";
-
-      } else {
-
-        statusDot.classList.add("error");
-        statusText.textContent = "Serveur disponible";
-
-      }
-
-    } catch (error) {
-
-      console.error("Test serveur:", error);
-
-      statusDot.classList.add("error");
-      statusText.textContent = "Serveur inaccessible";
-    }
-  }
-
-  /* --------------------------------------------
-     INITIALISATION
-  -------------------------------------------- */
-
-  checkServer();
-
+}
+function createChatRecord() {
+  const c = {id:uid(),title:"Nouvelle conversation",updatedAt:Date.now(),messages:[]};
+  chats.unshift(c);
+  return c;
+}
+function currentChat() {
+  return chats.find(c => c.id === currentChatId);
+}
+function newChat() {
+  if (busy) return;
+  const c = createChatRecord();
+  currentChatId = c.id;
+  editingIndex = null;
+  saveChats();
+  renderCurrentChat();
   input.focus();
+}
+function renderChatList() {
+  const list = $("chatList");
+  list.replaceChildren();
+  chats.sort((a,b) => b.updatedAt-a.updatedAt);
+  for (const c of chats) {
+    const row = document.createElement("div");
+    row.className = "chat-item";
+    const open = document.createElement("button");
+    open.className = "chat-open" + (c.id===currentChatId ? " active" : "");
+    open.textContent = c.title;
+    open.title = c.title;
+    open.addEventListener("click", () => {
+      if (busy) return;
+      currentChatId = c.id;
+      editingIndex = null;
+      renderChatList();
+      renderCurrentChat();
+    });
+    row.appendChild(open);
+    list.appendChild(row);
+  }
+}
+function cleanMarkdown(text) {
+  return String(text)
+    .replace(/^#{1,6}\s*/gm,"")
+    .replace(/(\*\*|__)(.*?)\1/g,"$2")
+    .replace(/(^|[\s(])[*_]([^*_\n]+)[*_](?=$|[\s).,:;!?])/g,"$1$2")
+    .replace(/^\s*[-*_]{3,}\s*$/gm,"")
+    .replace(/^\s*>\s?/gm,"")
+    .replace(/\n{3,}/g,"\n\n")
+    .trim();
+}
+function addImageToBubble(bubble, dataUrl, alt) {
+  const img = document.createElement("img");
+  img.className = "message-image";
+  img.src = dataUrl;
+  img.alt = alt || "Image générée";
+  img.loading = "lazy";
+  bubble.appendChild(document.createElement("br"));
+  bubble.appendChild(img);
+}
+function renderCurrentChat() {
+  const c = currentChat();
+  if (!c) return;
+  $("currentTitle").textContent = c.title;
+  $("chatSubtitle").textContent = c.messages.length
+    ? `${c.messages.length} message(s) enregistré(s)`
+    : "Ton assistant d'apprentissage";
+  chatArea.querySelectorAll(".message-row").forEach(el => el.remove());
+  $("welcome").classList.toggle("hidden",c.messages.length>0);
+  c.messages.forEach((m,index) => renderMessage(m,index));
+  chatArea.appendChild(typing);
+  scrollToBottom();
+}
+function renderMessage(m,index) {
+  const row = document.createElement("div");
+  row.className = "message-row" + (m.role==="user" ? " user" : "");
+  const bubble = document.createElement("div");
+  bubble.className = "message " + m.role;
+  bubble.textContent = m.role==="assistant" ? cleanMarkdown(m.content) : m.content;
+  row.appendChild(bubble);
 
+  if (m.role==="assistant") {
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+    const read = document.createElement("button");
+    read.textContent = "🔊 Lire";
+    read.addEventListener("click",()=>speak(m.content));
+    actions.appendChild(read);
+    row.appendChild(actions);
+  } else if (m.role==="user") {
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+    const edit = document.createElement("button");
+    edit.textContent = "✏️ Modifier et renvoyer";
+    edit.addEventListener("click",()=>editMessage(index));
+    actions.appendChild(edit);
+    row.appendChild(actions);
+  }
+  chatArea.insertBefore(row,typing);
+}
+function scrollToBottom() {
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+function setBusy(value) {
+  busy = value;
+  sendButton.disabled = value;
+  $("micButton").disabled = value;
+  typing.classList.toggle("show",value);
+}
+function buildSystemInstruction() {
+  const names = {
+    devoir:"résolution de devoir",
+    cours:"explication de cours",
+    resume:"résumé",
+    correction:"correction",
+    methode:"méthode de travail"
+  };
+  return `Tu es Sterling IA, assistant pédagogique.
+Niveau scolaire : ${levelSelect.value}
+Matière : ${subjectSelect.value}
+Mode : ${names[currentMode] || currentMode}
+Réponds en français sauf demande contraire. Explique progressivement, adapte ton vocabulaire au niveau, détaille les étapes quand c'est utile et ne répète pas inutilement les informations déjà données. Tiens compte de l'historique fourni et poursuis le fil de la discussion. Utilise des titres sobres, sans empiler les symboles Markdown.`;
+}
+async function sendMessage(textOverride=null) {
+  if (busy) return;
+  const text = String(textOverride===null ? input.value : textOverride).trim();
+  if (!text) return;
+  const c = currentChat();
+  if (!c) return;
+
+  const history = c.messages.map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.content}));
+  c.messages.push({role:"user",content:text});
+  if (c.messages.length===1) c.title = text.slice(0,42) + (text.length>42?"…":"");
+  c.updatedAt = Date.now();
+  input.value = "";
+  editingIndex = null;
+  saveChats();
+  renderCurrentChat();
+  setBusy(true);
+
+  try {
+    const response = await fetch(AI_SERVER+"/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        message:text,
+        system:buildSystemInstruction(),
+        mode:currentMode,
+        level:levelSelect.value,
+        subject:subjectSelect.value,
+        history:history.slice(-20)
+      })
+    });
+    const raw = await response.text();
+    let data;
+    try { data=JSON.parse(raw); } catch { data=null; }
+    if (!response.ok) throw new Error(data?.message || `Erreur serveur HTTP ${response.status}`);
+    const answer = typeof data?.output==="string" ? data.output : "";
+    if (!answer.trim()) throw new Error("Le serveur n'a renvoyé aucune réponse.");
+    c.messages.push({role:"assistant",content:answer});
+    c.updatedAt = Date.now();
+    saveChats();
+    if (currentChatId===c.id) renderCurrentChat();
+  } catch (err) {
+    console.error("Sterling IA:",err);
+    c.messages.push({role:"error",content:"Sterling IA n'a pas pu répondre : "+(err.message || "Erreur inconnue")});
+    saveChats();
+    if (currentChatId===c.id) renderCurrentChat();
+  } finally {
+    setBusy(false);
+    renderChatList();
+    input.focus();
+  }
+}
+function editMessage(index) {
+  if (busy) return;
+  const c = currentChat();
+  const m = c?.messages[index];
+  if (!m || m.role!=="user") return;
+  const replacement = prompt("Modifie ta question :",m.content);
+  if (replacement===null || !replacement.trim()) return;
+  c.messages = c.messages.slice(0,index);
+  c.updatedAt = Date.now();
+  saveChats();
+  renderCurrentChat();
+  sendMessage(replacement.trim());
+}
+function renameCurrentChat() {
+  const c = currentChat();
+  if (!c || busy) return;
+  const title = prompt("Nouveau titre :",c.title);
+  if (title===null || !title.trim()) return;
+  c.title = title.trim().slice(0,100);
+  c.updatedAt = Date.now();
+  saveChats();
+  renderCurrentChat();
+}
+function deleteCurrentChat() {
+  if (busy) return;
+  const c = currentChat();
+  if (!c || !confirm(`Supprimer « ${c.title} » ? Cette action est définitive dans ce navigateur.`)) return;
+  chats = chats.filter(x=>x.id!==c.id);
+  if (!chats.length) createChatRecord();
+  currentChatId = chats[0].id;
+  saveChats();
+  renderCurrentChat();
+}
+function clearCurrentChat() {
+  if (busy) return;
+  const c = currentChat();
+  if (!c || !confirm("Effacer tous les messages de cette conversation ?")) return;
+  c.messages=[];
+  c.title="Nouvelle conversation";
+  c.updatedAt=Date.now();
+  saveChats();
+  renderCurrentChat();
+}
+function speak(text) {
+  if (!("speechSynthesis" in window)) {
+    alert("La lecture vocale n'est pas prise en charge par ce navigateur.");
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(cleanMarkdown(text));
+  utterance.lang="fr-FR";
+  window.speechSynthesis.speak(utterance);
+}
+function dictate() {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    alert("La dictée vocale n'est pas prise en charge par ce navigateur. Essaie un navigateur compatible et vérifie ses permissions.");
+    return;
+  }
+  const recognition = new Recognition();
+  recognition.lang="fr-FR";
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+  recognition.onresult = event => {
+    const transcript = event.results?.[0]?.[0]?.transcript || "";
+    input.value = (input.value ? input.value+" " : "")+transcript;
+    input.focus();
+  };
+  recognition.onerror = event => alert("Dictée vocale : "+event.error);
+  recognition.start();
+}
+async function transformPhoto(file) {
+  if (!file || busy) return;
+  const prompt = promptText("Que souhaites-tu modifier dans cette photo ?","Améliore cette image naturellement en conservant les éléments importants.");
+  if (prompt===null) return;
+  const c=currentChat();
+  c.messages.push({role:"user",content:"🖼️ Photo envoyée pour modification : "+file.name+"\nInstruction : "+prompt});
+  saveChats();
+  renderCurrentChat();
+  setBusy(true);
+  try {
+    const form=new FormData();
+    form.append("image",file);
+    form.append("prompt",prompt);
+    const response=await fetch(AI_SERVER+"/transform",{method:"POST",body:form});
+    const data=await response.json();
+    if (!response.ok || !data.ok || !data.image) throw new Error(data.message || "La transformation d'image a échoué.");
+    c.messages.push({role:"assistant",content:"Voici l'image transformée.\n"+data.image});
+    saveChats();
+    renderCurrentChat();
+  } catch(err) {
+    c.messages.push({role:"error",content:"Impossible de transformer cette image : "+err.message});
+    saveChats();
+    renderCurrentChat();
+  } finally {setBusy(false);}
+}
+function promptText(message,defaultValue) {
+  return window.prompt(message,defaultValue);
+}
+async function generateImage() {
+  if (busy) return;
+  const prompt=promptText("Décris l'image à générer. Exemple : un village ninja inspiré des anime, au coucher du soleil.","");
+  if (!prompt?.trim()) return;
+  const c=currentChat();
+  const history=c.messages.map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.content}));
+  c.messages.push({role:"user",content:"✨ Génère une image : "+prompt.trim()});
+  saveChats();
+  renderCurrentChat();
+  setBusy(true);
+  try {
+    const response=await fetch(AI_SERVER+"/generate-image",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({prompt:prompt.trim()})
+    });
+    const data=await response.json();
+    if (!response.ok || !data.ok || !data.image) throw new Error(data.message || "La génération d'image n'a pas fonctionné. Le modèle doit prendre en charge cette fonction.");
+    c.messages.push({role:"assistant",content:"Image générée.\n"+data.image});
+    saveChats();
+    renderCurrentChat();
+  } catch(err) {
+    c.messages.push({role:"error",content:"Génération d'image indisponible : "+err.message});
+    saveChats();
+    renderCurrentChat();
+  } finally {setBusy(false);}
+}
+async function checkServer() {
+  try {
+    const r=await fetch(AI_SERVER+"/",{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data=await r.json();
+    if(!data.ok) throw new Error("Service non confirmé");
+    $("statusDot").className="dot online";
+    $("statusText").textContent="IA disponible";
+  } catch(e) {
+    $("statusDot").className="dot error";
+    $("statusText").textContent="Connexion à vérifier";
+    console.warn("Test du serveur:",e);
+  }
+}
+
+document.querySelectorAll(".mode").forEach(button=>{
+  button.addEventListener("click",()=>{
+    document.querySelectorAll(".mode").forEach(b=>b.classList.remove("active"));
+    button.classList.add("active");
+    currentMode=button.dataset.mode;
+    const labels={devoir:"Devoir",cours:"Cours",resume:"Résumé",correction:"Correction",methode:"Méthode"};
+    $("modeInfo").textContent="Mode : "+labels[currentMode];
+  });
+});
+document.querySelectorAll(".quick button").forEach(button=>{
+  button.addEventListener("click",()=>{
+    input.value=button.dataset.question||"";
+    input.focus();
+  });
+});
+$("newChat").addEventListener("click",newChat);
+$("renameChat").addEventListener("click",renameCurrentChat);
+$("deleteChat").addEventListener("click",deleteCurrentChat);
+$("clearButton").addEventListener("click",clearCurrentChat);
+sendButton.addEventListener("click",()=>sendMessage());
+input.addEventListener("keydown",event=>{
+  if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();sendMessage();}
+});
+$("micButton").addEventListener("click",dictate);
+$("readButton").addEventListener("click",()=>{
+  const c=currentChat();
+  const last=[...(c?.messages||[])].reverse().find(m=>m.role==="assistant");
+  if(last) speak(last.content);
+  else alert("Il n'y a pas encore de réponse à lire.");
+});
+$("stopAudio").addEventListener("click",()=>{
+  if("speechSynthesis" in window) window.speechSynthesis.cancel();
+});
+$("imageButton").addEventListener("click",()=>$("imageInput").click());
+$("imageInput").addEventListener("change",event=>{
+  const file=event.target.files?.[0];
+  if(file) transformPhoto(file);
+  event.target.value="";
+});
+$("generateButton").addEventListener("click",generateImage);
+
+if(!chats.length) {
+  const c=createChatRecord();
+  currentChatId=c.id;
+}
+saveChats();
+renderCurrentChat();
+checkServer();
 </script>
-
 </body>
   </html>
+        
