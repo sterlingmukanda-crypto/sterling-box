@@ -1,294 +1,427 @@
 
-import express from "express";
-import cors from "cors";
-import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
-import { GoogleGenAI } from "@google/genai";
+"use strict";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+require("dotenv").config();
+
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const { GoogleGenAI } = require("@google/genai");
+
 const app = express();
-const PORT = process.env.PORT || 10000;
 
-const TEXT_MODEL = "gemini-3.8-flash";
-const IMAGE_MODEL = "gemini-3.1-flash-image";
+const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.GEMINI_API_KEY;
+
+const TEXT_MODEL = process.env.TEXT_MODEL || "gemini-3.8-flash";
+const IMAGE_MODEL = process.env.IMAGE_MODEL || "gemini-3.1-flash-image";
+
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_TEXT_LENGTH = 20000;
 
-if (!process.env.GEMINI_API_KEY) {
-  console.warn("ATTENTION : GEMINI_API_KEY est absente.");
-}
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY
-});
+app.disable("x-powered-by");
+app.use(cors());
+app.use(express.json({ limit: "2mb" }));
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_IMAGE_BYTES, files: 8 },
-  fileFilter(req, file, callback) {
-    const allowed = [
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/heic",
-      "image/heif"
-    ];
-    if (!allowed.includes(file.mimetype)) {
-      return callback(new Error(
-        "Format non pris en charge. Utilise JPEG, PNG ou WebP."
-      ));
+  limits: {
+    fileSize: MAX_IMAGE_BYTES,
+    files: 1
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith("image/")) {
+      return cb(new Error("Le fichier doit être une image."));
     }
-    callback(null, true);
+    cb(null, true);
   }
 });
 
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "OPTIONS"]
-}));
-app.use(express.json({ limit: "15mb" }));
-
-app.use((req, res, next) => {
-  console.log(`REQUEST: ${req.method} ${req.url}`);
-  next();
-});
-
-function requireApiKey(res) {
-  if (!process.env.GEMINI_API_KEY) {
-    res.status(500).json({
+function requireAI(req, res, next) {
+  if (!ai) {
+    return res.status(503).json({
       ok: false,
-      message: "GEMINI_API_KEY est absente des variables d'environnement de Render."
+      error: "GEMINI_API_KEY_MISSING",
+      message: "La clé GEMINI_API_KEY n'est pas configurée sur le serveur."
     });
-    return false;
   }
-  return true;
+  next();
 }
 
-function errorMessage(error) {
-  const message = String(error?.message || "Erreur inconnue.");
-  console.error("Erreur Gemini :", message);
-
-  if (/API_KEY|api key|unauthorized|forbidden/i.test(message)) {
-    return "La clé API Gemini est absente, invalide ou non autorisée.";
-  }
-  if (/quota|rate.?limit|resource.?exhausted/i.test(message)) {
-    return "La limite d'utilisation de Gemini a été atteinte. Réessaie plus tard.";
-  }
-  if (/not found|404|model/i.test(message)) {
-    return "Le modèle demandé est indisponible ou son identifiant est invalide. Vérifie les modèles autorisés pour ta clé Gemini.";
-  }
-  return message.slice(0, 500);
+function getText(value, maxLength = MAX_TEXT_LENGTH) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
 
-function buildVisionPrompt({
-  question,
-  system = "",
-  mode = "general",
-  level = "adaptatif",
-  subject = "Général"
-}) {
-  return `
-Tu es Sterling Box IA, un assistant multimodal rigoureux et honnête.
-Analyse les détails réellement visibles. N'invente pas les objets,
-les couleurs, les noms, le texte ni les actions qui ne sont pas discernables.
-Distingue les observations des suppositions et signale les incertitudes.
-Si plusieurs personnages ou objets sont présents, décris-les séparément.
-Lis le texte de l'image uniquement lorsqu'il est suffisamment lisible.
-Pour un exercice scolaire, recopie l'énoncé visible et explique les étapes.
-Réponds en français sauf demande contraire.
+function getImageData(response) {
+  // Format recommandé pour les réponses d'image de l'API Gemini.
+  const outputImage = response?.outputImage || response?.output_image;
 
-Mode : ${mode}
-Niveau : ${level}
-Matière : ${subject}
-Instructions supplémentaires : ${system || "Aucune"}
-Question : ${question || "Décris cette image avec précision."}
-`;
-}
+  if (outputImage?.data) {
+    const mimeType =
+      outputImage.mimeType ||
+      outputImage.mime_type ||
+      "image/png";
 
-function getOutputImage(interaction) {
-  if (interaction?.output_image?.data) {
-    return interaction.output_image;
+    return {
+      image: `data:${mimeType};base64,${outputImage.data}`,
+      mimeType
+    };
   }
 
-  for (const step of interaction?.steps || []) {
-    if (step.type !== "model_output") continue;
-    for (const block of step.content || []) {
-      if (block.type === "image" && block.data) return block;
+  // Compatibilité avec les réponses Generate Content.
+  const parts =
+    response?.candidates?.[0]?.content?.parts ||
+    response?.response?.candidates?.[0]?.content?.parts ||
+    [];
+
+  for (const part of parts) {
+    const inlineData = part?.inlineData || part?.inline_data;
+
+    if (inlineData?.data) {
+      const mimeType =
+        inlineData.mimeType ||
+        inlineData.mime_type ||
+        "image/png";
+
+      return {
+        image: `data:${mimeType};base64,${inlineData.data}`,
+        mimeType
+      };
     }
   }
+
+  // Compatibilité avec les blocs d'image de l'API Interactions.
+  for (const step of response?.steps || []) {
+    if (step?.type !== "model_output") continue;
+
+    for (const block of step?.content || []) {
+      if (block?.type === "image" && block?.data) {
+        const mimeType = block.mime_type || "image/png";
+
+        return {
+          image: `data:${mimeType};base64,${block.data}`,
+          mimeType
+        };
+      }
+    }
+  }
+
   return null;
 }
 
-function imageDataUrl(image) {
-  const mime = image?.mime_type || "image/png";
-  return `data:${mime};base64,${image.data}`;
+function getResponseText(response) {
+  if (typeof response?.text === "string" && response.text.trim()) {
+    return response.text.trim();
+  }
+
+  if (
+    typeof response?.outputText === "string" &&
+    response.outputText.trim()
+  ) {
+    return response.outputText.trim();
+  }
+
+  if (
+    typeof response?.output_text === "string" &&
+    response.output_text.trim()
+  ) {
+    return response.output_text.trim();
+  }
+
+  const parts =
+    response?.candidates?.[0]?.content?.parts ||
+    response?.response?.candidates?.[0]?.content?.parts ||
+    [];
+
+  return parts
+    .filter(part => typeof part?.text === "string")
+    .map(part => part.text)
+    .join("\n")
+    .trim();
 }
 
-/* Pages */
-app.get("/assistant.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "assistant.html"));
-});
+function buildSystemInstruction({ system, mode, level, subject }) {
+  const suppliedSystem = getText(system, 4000);
 
-/* Page historique : conservée pour compatibilité, mais non nécessaire au chat */
-app.get("/image.html", (req, res) => {
-  res.sendFile(path.join(__dirname, "image.html"));
-});
+  return [
+    "Tu es Sterling IA, un assistant pédagogique clair, patient et bienveillant.",
+    `Niveau scolaire : ${getText(level, 100) || "Non précisé"}.`,
+    `Matière : ${getText(subject, 100) || "Autre"}.`,
+    `Mode de travail : ${getText(mode, 100) || "devoir"}.`,
+    "Réponds dans la langue utilisée par l'utilisateur, sauf demande contraire.",
+    "Pour les exercices, explique les étapes et adapte les explications au niveau scolaire.",
+    suppliedSystem ? `Instructions supplémentaires de l'application : ${suppliedSystem}` : ""
+  ].filter(Boolean).join("\n");
+}
+
+function sendServerError(res, error, label = "Erreur du serveur") {
+  console.error(`[${label}]`, error);
+
+  const message =
+    error?.message ||
+    "Une erreur inattendue est survenue.";
+
+  return res.status(500).json({
+    ok: false,
+    error: "SERVER_ERROR",
+    message: message.slice(0, 500)
+  });
+}
 
 app.get("/", (req, res) => {
   res.json({
     ok: true,
-    service: "Sterling Box AI",
+    name: "Sterling Box IA",
+    status: "online",
     textModel: TEXT_MODEL,
     imageModel: IMAGE_MODEL,
-    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
-    routes: {
-      assistant: "/assistant.html",
-      chat: "/chat",
-      understandImage: "/understand-image",
-      analyzeImage: "/analyze-image",
-      transform: "/transform",
-      generateImage: "/generate-image"
-    }
+    geminiConfigured: Boolean(API_KEY),
+    routes: [
+      "/",
+      "/health",
+      "/chat",
+      "/understand-image",
+      "/analyze-image",
+      "/transform",
+      "/generate-image"
+    ]
   });
 });
 
-/* Chat texte */
-app.get("/chat", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
     ok: true,
-    route: "/chat",
-    model: TEXT_MODEL,
-    geminiConfigured: Boolean(process.env.GEMINI_API_KEY)
+    status: "online",
+    geminiConfigured: Boolean(API_KEY)
   });
 });
 
-app.post("/chat", async (req, res) => {
+/* -------------------------------------------------------
+   CHAT IA
+   POST /chat
+------------------------------------------------------- */
+app.post("/chat", requireAI, async (req, res) => {
   try {
-    if (!requireApiKey(res)) return;
+    const message = getText(req.body?.message);
 
-    const {
-      message,
-      system = "",
-      mode = "general",
-      level = "adaptatif",
-      subject = "Général",
-      history = []
-    } = req.body || {};
-
-    if (!String(message || "").trim()) {
-      return res.status(400).json({ ok: false, message: "Message vide." });
-    }
-
-    const safeHistory = Array.isArray(history)
-      ? history
-          .filter(item =>
-            item &&
-            ["user", "assistant"].includes(item.role) &&
-            typeof item.content === "string"
-          )
-          .slice(-12)
-          .map(item =>
-            `${item.role === "user" ? "Utilisateur" : "Sterling Box IA"}: ${item.content.slice(0, 5000)}`
-          )
-          .join("\n\n")
-      : "";
-
-    const prompt = `
-Tu es Sterling Box IA, un assistant utile, clair et fiable.
-Réponds en français sauf demande contraire. Explique les étapes utiles
-et adapte tes explications au niveau de l'utilisateur. N'invente pas de faits.
-
-Mode : ${String(mode).slice(0, 100)}
-Niveau : ${String(level).slice(0, 100)}
-Matière : ${String(subject).slice(0, 200)}
-Instructions : ${String(system).slice(0, 5000)}
-
-Historique récent :
-${safeHistory || "Aucun historique précédent."}
-
-Nouveau message :
-${String(message).slice(0, 12000)}
-`;
-
-    const interaction = await ai.interactions.create({
-      model: TEXT_MODEL,
-      input: prompt
-    });
-
-    const output = interaction.output_text || "";
-    if (!output.trim()) {
-      return res.status(502).json({
+    if (!message) {
+      return res.status(400).json({
         ok: false,
-        message: "Gemini n'a retourné aucune réponse."
+        message: "Écris un message avant de l'envoyer."
       });
     }
 
-    res.json({ ok: true, output, model: TEXT_MODEL });
+    const system = buildSystemInstruction(req.body || {});
+    const history = Array.isArray(req.body?.history)
+      ? req.body.history.slice(-12)
+      : [];
+
+    const conversation = history
+      .filter(item =>
+        item &&
+        ["user", "assistant"].includes(item.role) &&
+        typeof item.content === "string"
+      )
+      .map(item => {
+        const role = item.role === "assistant" ? "Assistant" : "Utilisateur";
+        return `${role} : ${getText(item.content, 6000)}`;
+      })
+      .join("\n\n");
+
+    const prompt = [
+      system,
+      conversation ? `Historique récent :\n${conversation}` : "",
+      `Nouvelle question de l'utilisateur :\n${message}`
+    ].filter(Boolean).join("\n\n");
+
+    const response = await ai.models.generateContent({
+      model: TEXT_MODEL,
+      contents: prompt
+    });
+
+    const output = getResponseText(response);
+
+    if (!output) {
+      return res.status(502).json({
+        ok: false,
+        message: "Le modèle n'a renvoyé aucun texte."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      output
+    });
   } catch (error) {
-    res.status(500).json({ ok: false, message: errorMessage(error) });
+    return sendServerError(res, error, "CHAT");
   }
 });
 
-/* Analyse d'image */
-async function handleUnderstandImage(req, res) {
+/* -------------------------------------------------------
+   ANALYSE D'IMAGE
+   POST /understand-image
+   Alias : POST /analyze-image
+------------------------------------------------------- */
+async function handleImageAnalysis(req, res) {
   try {
-    if (!requireApiKey(res)) return;
     if (!req.file) {
       return res.status(400).json({
         ok: false,
-        message: "Aucune image reçue. Le champ attendu est « image »."
+        message: "Ajoute une image à analyser."
       });
     }
 
-    const question = String(
-      req.body?.question || req.body?.prompt ||
-      "Décris cette image et explique ses éléments importants."
-    ).slice(0, 5000);
+    const question =
+      getText(req.body?.question) ||
+      getText(req.body?.prompt) ||
+      "Décris cette image et explique les éléments importants.";
 
-    const prompt = buildVisionPrompt({
-      question,
-      system: String(req.body?.system || "").slice(0, 5000),
-      mode: String(req.body?.mode || "general").slice(0, 100),
-      level: String(req.body?.level || "adaptatif").slice(0, 100),
-      subject: String(req.body?.subject || "Général").slice(0, 200)
-    });
+    const system = buildSystemInstruction(req.body || {});
 
-    const interaction = await ai.interactions.create({
+    const response = await ai.models.generateContent({
       model: TEXT_MODEL,
-      input: [
-        { type: "text", text: prompt },
+      contents: [
         {
-          type: "image",
-          mime_type: req.file.mimetype,
-          data: req.file.buffer.toString("base64")
+          role: "user",
+          parts: [
+            {
+              text:
+                `${system}\n\n` +
+                `Question sur l'image : ${question}\n\n` +
+                "Observe l'image et réponds de manière précise et pédagogique."
+            },
+            {
+              inlineData: {
+                mimeType: req.file.mimetype,
+                data: req.file.buffer.toString("base64")
+              }
+            }
+          ]
         }
       ]
     });
 
-    const output = interaction.output_text || "";
-    if (!output.trim()) {
+    const output = getResponseText(response);
+
+    if (!output) {
       return res.status(502).json({
         ok: false,
-        message: "Gemini n'a retourné aucune analyse."
+        message: "L'IA n'a renvoyé aucune analyse."
       });
     }
 
-    res.json({ ok: true, output, model: TEXT_MODEL });
+    return res.json({
+      ok: true,
+      output
+    });
   } catch (error) {
-    res.status(500).json({ ok: false, message: errorMessage(error) });
+    return sendServerError(res, error, "IMAGE_ANALYSIS");
   }
 }
 
-app.post("/understand-image", upload.single("image"), handleUnderstandImage);
-app.post("/analyze-image", upload.single("image"), handleUnderstandImage);
+app.post(
+  "/understand-image",
+  requireAI,
+  upload.single("image"),
+  handleImageAnalysis
+);
 
-/* Génération d'image depuis un texte */
-app.post("/generate-image", async (req, res) => {
+app.post(
+  "/analyze-image",
+  requireAI,
+  upload.single("image"),
+  handleImageAnalysis
+);
+
+/* -------------------------------------------------------
+   MODIFICATION DE PHOTO
+   POST /transform
+------------------------------------------------------- */
+app.post(
+  "/transform",
+  requireAI,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          ok: false,
+          message: "Ajoute la photo à modifier."
+        });
+      }
+
+      const prompt = getText(req.body?.prompt);
+
+      if (!prompt) {
+        return res.status(400).json({
+          ok: false,
+          message: "Décris les modifications souhaitées."
+        });
+      }
+
+      const response = await ai.models.generateContent({
+        model: IMAGE_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text:
+                  "Modifie l'image fournie selon les instructions suivantes. " +
+                  "Conserve les éléments importants non concernés par la demande. " +
+                  "Retourne une image modifiée.\n\n" +
+                  `Instructions : ${prompt}`
+              },
+              {
+                inlineData: {
+                  mimeType: req.file.mimetype,
+                  data: req.file.buffer.toString("base64")
+                }
+              }
+            ]
+          }
+        ],
+        config: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
+      });
+
+      const result = getImageData(response);
+
+      if (!result) {
+        const explanation = getResponseText(response);
+
+        return res.status(502).json({
+          ok: false,
+          message: explanation
+            ? `Aucune image n'a été renvoyée. Réponse du modèle : ${explanation.slice(0, 350)}`
+            : "Le modèle n'a pas renvoyé d'image. Réessaie avec une autre instruction."
+        });
+      }
+
+      return res.json({
+        ok: true,
+        image: result.image,
+        mimeType: result.mimeType,
+        message: "Image modifiée avec succès."
+      });
+    } catch (error) {
+      return sendServerError(res, error, "IMAGE_TRANSFORM");
+    }
+  }
+);
+
+/* -------------------------------------------------------
+   GÉNÉRATION D'IMAGE
+   POST /generate-image
+   Body JSON : { "prompt": "..." }
+------------------------------------------------------- */
+app.post("/generate-image", requireAI, async (req, res) => {
   try {
-    if (!requireApiKey(res)) return;
+    const prompt = getText(req.body?.prompt);
 
-    const prompt = String(req.body?.prompt || "").trim().slice(0, 5000);
     if (!prompt) {
       return res.status(400).json({
         ok: false,
@@ -296,123 +429,86 @@ app.post("/generate-image", async (req, res) => {
       });
     }
 
-    const interaction = await ai.interactions.create({
+    const response = await ai.models.generateContent({
       model: IMAGE_MODEL,
-      input: prompt,
-      response_format: {
-        type: "image",
-        mime_type: "image/png",
-        aspect_ratio: "1:1",
-        image_size: "1K"
+      contents: [
+        "Crée une image correspondant à cette description. " +
+        "Retourne une image de bonne qualité.\n\n" +
+        `Description : ${prompt}`
+      ],
+      config: {
+        responseModalities: ["TEXT", "IMAGE"]
       }
     });
 
-    const generatedImage = getOutputImage(interaction);
-    if (!generatedImage?.data) {
+    const result = getImageData(response);
+
+    if (!result) {
+      const explanation = getResponseText(response);
+
       return res.status(502).json({
         ok: false,
-        message: "Le modèle n'a retourné aucune image. Essaie avec une autre description."
+        message: explanation
+          ? `Aucune image n'a été générée. Réponse du modèle : ${explanation.slice(0, 350)}`
+          : "Le modèle n'a pas renvoyé d'image. Réessaie avec une autre description."
       });
     }
 
-    res.json({
+    return res.json({
       ok: true,
-      model: IMAGE_MODEL,
-      image: imageDataUrl(generatedImage),
-      description: interaction.output_text || ""
+      image: result.image,
+      mimeType: result.mimeType,
+      message: "Image générée avec succès."
     });
   } catch (error) {
-    res.status(500).json({ ok: false, message: errorMessage(error) });
+    return sendServerError(res, error, "IMAGE_GENERATION");
   }
 });
 
-/* Retouche d'une photo ou d'un montage */
-async function handleTransform(req, res) {
-  try {
-    if (!requireApiKey(res)) return;
-    if (!req.file) {
-      return res.status(400).json({
-        ok: false,
-        message: "Aucune image reçue. Choisis une photo ou un montage."
-      });
-    }
+/* -------------------------------------------------------
+   ERREURS MULTER ET ROUTES INCONNUES
+------------------------------------------------------- */
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
 
-    const prompt = String(
-      req.body?.prompt ||
-      "Améliore cette image naturellement en conservant ses éléments importants."
-    ).slice(0, 5000);
+  if (err instanceof multer.MulterError) {
+    const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
 
-    const interaction = await ai.interactions.create({
-      model: IMAGE_MODEL,
-      input: [
-        { type: "text", text: prompt },
-        {
-          type: "image",
-          mime_type: req.file.mimetype,
-          data: req.file.buffer.toString("base64")
-        }
-      ],
-      response_format: {
-        type: "image",
-        mime_type: "image/png",
-        image_size: "1K"
-      }
-    });
-
-    const generatedImage = getOutputImage(interaction);
-    if (!generatedImage?.data) {
-      return res.status(502).json({
-        ok: false,
-        message: "Le modèle n'a retourné aucune image modifiée."
-      });
-    }
-
-    res.json({
-      ok: true,
-      model: IMAGE_MODEL,
-      image: imageDataUrl(generatedImage),
-      description: interaction.output_text || ""
-    });
-  } catch (error) {
-    res.status(500).json({ ok: false, message: errorMessage(error) });
-  }
-}
-
-app.post("/transform", upload.single("image"), handleTransform);
-
-/* Gestion des erreurs de fichiers */
-app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    const status = error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
     return res.status(status).json({
       ok: false,
-      message: error.code === "LIMIT_FILE_SIZE"
+      message: err.code === "LIMIT_FILE_SIZE"
         ? "L'image dépasse la limite de 10 Mo."
-        : `Erreur de fichier : ${error.message}`
+        : "Le fichier envoyé est invalide."
     });
   }
 
-  if (error) {
-    console.error("Erreur serveur :", error);
-    return res.status(400).json({
+  if (err) {
+    const status = err.message?.includes("doit être une image") ? 400 : 500;
+
+    console.error("[EXPRESS_ERROR]", err);
+
+    return res.status(status).json({
       ok: false,
-      message: error.message || "Erreur serveur."
+      message: status === 400
+        ? err.message
+        : "Une erreur serveur est survenue."
     });
   }
+
   next();
 });
 
+app.use((req, res) => {
+  res.status(404).json({
+    ok: false,
+    message: `Route introuvable : ${req.method} ${req.path}`
+  });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("======================================");
-  console.log("STERLING BOX AI");
-  console.log("Port :", PORT);
-  console.log("Chat : /chat");
-  console.log("Analyse : /analyze-image et /understand-image");
-  console.log("Retouche : /transform");
-  console.log("Génération : /generate-image");
-  console.log("Modèle texte/vision :", TEXT_MODEL);
-  console.log("Modèle image :", IMAGE_MODEL);
-  console.log("GEMINI_API_KEY :", process.env.GEMINI_API_KEY ? "CONFIGURÉE" : "ABSENTE");
-  console.log("Serveur prêt.");
+  console.log(`Sterling Box IA écoute sur le port ${PORT}`);
+  console.log(`Modèle texte : ${TEXT_MODEL}`);
+  console.log(`Modèle image : ${IMAGE_MODEL}`);
+  console.log(`Clé Gemini configurée : ${Boolean(API_KEY)}`);
 });
   
