@@ -3,7 +3,7 @@
   "name": "sterling-box-ai",
   "version": "2.0.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
