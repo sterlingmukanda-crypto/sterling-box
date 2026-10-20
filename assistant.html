@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#080b12">
-<title>Sterling IA — Études & Devoirs</title>
+<title>Sterling IA — Études &amp; Devoirs</title>
 <style>
 :root{--bg:#080b12;--panel:#101521;--panel2:#171e2d;--border:#293248;--text:#f4f6fc;--muted:#9ca8bd;--accent:#7180ff;--user:#293771;--danger:#ff6974;--ok:#35d08a}
 *{box-sizing:border-box}
@@ -49,10 +49,9 @@ select{width:100%;min-height:40px;padding:8px;border:1px solid var(--border);bor
 .message{max-width:100%;width:fit-content;padding:13px 15px;border:1px solid var(--border);border-radius:15px;background:var(--panel);line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}
 .message.user{background:var(--user);border-color:#394b91;border-bottom-right-radius:4px}
 .message.error{color:#ffb8be;border-color:#8a3b46}
-.message-actions{display:flex;gap:4px;flex-wrap:wrap}
-.message-actions button{background:transparent;color:var(--muted);border:0;font-size:11px;padding:5px 7px;border-radius:6px}
-.message-actions button:hover{background:var(--panel2);color:white}
 .message-image{display:block;max-width:min(100%,440px);max-height:480px;object-fit:contain;border-radius:10px;margin-top:8px}
+.image-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.image-actions a{color:#dbe0ff;font-size:12px}
 .typing{display:none;color:var(--muted);font-size:12px;padding:10px 0}.typing.show{display:block}
 .composer-area{position:sticky;bottom:0;background:#101521f5;border-top:1px solid var(--border);padding:12px 20px 15px;z-index:3}
 .composer-inner{max-width:940px;margin:auto}
@@ -61,7 +60,7 @@ textarea{width:100%;min-height:48px;max-height:180px;resize:vertical;padding:13p
 .send{height:48px;min-width:48px;border:0;border-radius:12px;background:var(--accent);color:white;font-size:20px}
 .tools{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
 .tools .btn{font-size:12px;padding:8px 10px}
-.bottom-info{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;margin-top:9px}
+.bottom-info{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;margin-top:9px;flex-wrap:wrap}
 .hidden{display:none!important}
 .notice{color:var(--muted);font-size:11px;line-height:1.5;margin:8px 0 0}
 @media(max-width:760px){
@@ -98,7 +97,7 @@ textarea{width:100%;min-height:48px;max-height:180px;resize:vertical;padding:13p
     <div id="chatList" class="chat-list"></div>
     <button id="renameChat" class="btn">✏️ Renommer ce chat</button>
     <button id="deleteChat" class="btn danger">🗑️ Supprimer ce chat</button>
-    <div class="side-note">Les conversations sont enregistrées dans ce navigateur. Elles ne sont pas automatiquement synchronisées avec tes autres appareils.</div>
+    <div class="side-note">Les conversations sont enregistrées dans ce navigateur. Les images restent stockées localement dans la limite du navigateur.</div>
   </aside>
 
   <section class="main">
@@ -142,7 +141,7 @@ textarea{width:100%;min-height:48px;max-height:180px;resize:vertical;padding:13p
           <li>Comprendre une leçon étape par étape</li>
           <li>Résoudre un exercice avec explications</li>
           <li>Résumer ou corriger un texte</li>
-          <li>Analyser une image envoyée dans le chat</li>
+          <li>Analyser, modifier et générer des images dans le chat</li>
         </ul>
         <p>Crée un nouveau chat pour séparer tes matières et tes projets.</p>
       </div>
@@ -162,13 +161,15 @@ textarea{width:100%;min-height:48px;max-height:180px;resize:vertical;padding:13p
           <button id="analyzeImageButton" class="btn">🔎 Comprendre une image</button>
           <button id="imageButton" class="btn">🖼️ Modifier une photo</button>
           <button id="generateButton" class="btn">✨ Générer une image</button>
+          <button id="montageButton" class="btn">🧩 Créer un montage</button>
           <input id="imageInput" type="file" accept="image/*" class="hidden">
           <input id="analyzeImageInput" type="file" accept="image/*" class="hidden">
+          <input id="montageInput" type="file" accept="image/*" multiple class="hidden">
         </div>
-        <p class="notice">L'analyse d'image nécessite la route POST /analyze-image sur le serveur. La dictée et la lecture vocale dépendent du navigateur. Les images ne sont pas incluses dans la sauvegarde locale des conversations.</p>
+        <p class="notice">Les images sont envoyées au serveur uniquement lorsque tu demandes une analyse, une modification ou une génération. La dictée et la lecture vocale dépendent du navigateur.</p>
         <div class="bottom-info">
           <span id="modeInfo">Mode : Devoir</span>
-          <button id="clearButton" class="small-action">Effacer les messages de ce chat</button>
+          <button id="clearButton" class="btn">Effacer les messages de ce chat</button>
         </div>
       </div>
     </section>
@@ -180,6 +181,8 @@ textarea{width:100%;min-height:48px;max-height:180px;resize:vertical;padding:13p
 
 const AI_SERVER = "https://sterling-box-ai.onrender.com";
 const STORAGE_KEY = "sterlingBoxChatsV2";
+const IMAGE_DB_NAME = "sterlingBoxImageStore";
+const IMAGE_DB_VERSION = 1;
 const MAX_CHATS = 60;
 const MAX_MESSAGES = 250;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -188,6 +191,8 @@ let currentMode = "devoir";
 let busy = false;
 let chats = loadChats();
 let currentChatId = chats[0]?.id || null;
+let imageDbPromise = null;
+const imageUrls = new Map();
 
 const $ = id => document.getElementById(id);
 const chatArea = $("chat");
@@ -205,9 +210,7 @@ function loadChats() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
     if (!Array.isArray(saved)) return [];
-
-    return saved
-      .filter(c => c && typeof c.id === "string" && Array.isArray(c.messages))
+    return saved.filter(c => c && typeof c.id === "string" && Array.isArray(c.messages))
       .slice(0, MAX_CHATS)
       .map(c => ({
         id: c.id,
@@ -219,12 +222,82 @@ function loadChats() {
         ).map(m => ({
           role: m.role,
           content: m.content.slice(0, 20000),
-          image: null
+          imageId: typeof m.imageId === "string" ? m.imageId : null,
+          imageName: typeof m.imageName === "string" ? m.imageName : null
         }))
       }));
   } catch (e) {
     console.warn("Historique local illisible:", e);
     return [];
+  }
+}
+
+function openImageDB() {
+  if (!("indexedDB" in window)) {
+    return Promise.reject(new Error("Ce navigateur ne prend pas en charge le stockage local des images."));
+  }
+  if (imageDbPromise) return imageDbPromise;
+  imageDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(IMAGE_DB_NAME, IMAGE_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("images")) {
+        db.createObjectStore("images", { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Impossible d'ouvrir le stockage des images."));
+  });
+  return imageDbPromise;
+}
+
+async function storeImage(fileOrBlob, name = "image.png") {
+  const db = await openImageDB();
+  const id = uid();
+  const blob = fileOrBlob instanceof Blob ? fileOrBlob : new Blob([fileOrBlob]);
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction("images", "readwrite");
+    tx.objectStore("images").put({ id, blob, name });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error || new Error("Échec de sauvegarde de l'image."));
+    tx.onabort = () => reject(tx.error || new Error("Sauvegarde de l'image annulée."));
+  });
+  return id;
+}
+
+async function getStoredImage(id) {
+  if (!id) return null;
+  if (imageUrls.has(id)) return imageUrls.get(id);
+  const db = await openImageDB();
+  const record = await new Promise((resolve, reject) => {
+    const tx = db.transaction("images", "readonly");
+    const request = tx.objectStore("images").get(id);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error || new Error("Lecture de l'image impossible."));
+  });
+  if (!record?.blob) return null;
+  const url = URL.createObjectURL(record.blob);
+  imageUrls.set(id, url);
+  return url;
+}
+
+async function deleteStoredImage(id) {
+  if (!id) return;
+  const url = imageUrls.get(id);
+  if (url) {
+    URL.revokeObjectURL(url);
+    imageUrls.delete(id);
+  }
+  try {
+    const db = await openImageDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("images", "readwrite");
+      tx.objectStore("images").delete(id);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.warn("Suppression image locale :", error);
   }
 }
 
@@ -235,7 +308,7 @@ function saveChats() {
     renderChatList();
   } catch (e) {
     console.error(e);
-    alert("Le stockage du navigateur est plein. Exporte ou supprime quelques anciens chats.");
+    alert("Le stockage des conversations est plein. Supprime quelques anciens chats.");
   }
 }
 
@@ -262,23 +335,19 @@ function renderChatList() {
   const list = $("chatList");
   list.replaceChildren();
   chats.sort((a, b) => b.updatedAt - a.updatedAt);
-
   for (const c of chats) {
     const row = document.createElement("div");
     row.className = "chat-item";
-
     const open = document.createElement("button");
     open.className = "chat-open" + (c.id === currentChatId ? " active" : "");
     open.textContent = c.title;
     open.title = c.title;
-
     open.addEventListener("click", () => {
       if (busy) return;
       currentChatId = c.id;
       renderChatList();
       renderCurrentChat();
     });
-
     row.appendChild(open);
     list.appendChild(row);
   }
@@ -297,15 +366,10 @@ function cleanMarkdown(text) {
 function renderCurrentChat() {
   const c = currentChat();
   if (!c) return;
-
   $("currentTitle").textContent = c.title;
-  $("chatSubtitle").textContent = c.messages.length
-    ? `${c.messages.length} message(s) enregistré(s)`
-    : "Ton assistant d'apprentissage";
-
+  $("chatSubtitle").textContent = `${c.messages.length} message(s) enregistré(s)`;
   chatArea.querySelectorAll(".message-row").forEach(el => el.remove());
   $("welcome").classList.toggle("hidden", c.messages.length > 0);
-
   c.messages.forEach((m, index) => renderMessage(m, index));
   chatArea.appendChild(typing);
   scrollToBottom();
@@ -314,30 +378,55 @@ function renderCurrentChat() {
 function renderMessage(m, index) {
   const row = document.createElement("div");
   row.className = "message-row" + (m.role === "user" ? " user" : "");
-
   const bubble = document.createElement("div");
   bubble.className = "message " + m.role;
   bubble.textContent = m.role === "assistant" ? cleanMarkdown(m.content) : m.content;
+  row.appendChild(bubble);
 
-  // Affiche les images si le message en contient une.
-  if (m.image && m.image.startsWith("data:image/")) {
+  if (m.imageId) {
     const img = document.createElement("img");
     img.className = "message-image";
-    img.src = m.image;
-    img.alt = "Image jointe";
+    img.alt = m.imageName || "Image dans la conversation";
+    img.loading = "lazy";
+    img.dataset.imageId = m.imageId;
     bubble.appendChild(img);
-  }
+    getStoredImage(m.imageId).then(url => {
+      if (url && img.isConnected) img.src = url;
+      else if (!url && img.isConnected) img.alt = "Image locale introuvable dans le stockage du navigateur.";
+    }).catch(() => {
+      if (img.isConnected) img.alt = "Impossible de charger cette image locale.";
+    });
 
-  row.appendChild(bubble);
+    const imageActions = document.createElement("div");
+    imageActions.className = "image-actions";
+    const download = document.createElement("a");
+    download.href = "#";
+    download.textContent = "⬇️ Télécharger l’image";
+    download.addEventListener("click", async event => {
+      event.preventDefault();
+      try {
+        const url = await getStoredImage(m.imageId);
+        if (!url) throw new Error("Image introuvable.");
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = m.imageName || "sterling-image.png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+    imageActions.appendChild(download);
+    bubble.appendChild(imageActions);
+  }
 
   if (m.role === "assistant") {
     const actions = document.createElement("div");
     actions.className = "message-actions";
-
     const read = document.createElement("button");
     read.textContent = "🔊 Lire";
     read.addEventListener("click", () => speak(m.content));
-
     const copy = document.createElement("button");
     copy.textContent = "Copier";
     copy.addEventListener("click", async () => {
@@ -348,21 +437,17 @@ function renderMessage(m, index) {
         alert("La copie n'est pas disponible dans ce navigateur.");
       }
     });
-
     actions.append(read, copy);
     row.appendChild(actions);
   } else if (m.role === "user") {
     const actions = document.createElement("div");
     actions.className = "message-actions";
-
     const edit = document.createElement("button");
     edit.textContent = "✏️ Modifier et renvoyer";
     edit.addEventListener("click", () => editMessage(index));
-
     actions.appendChild(edit);
     row.appendChild(actions);
   }
-
   chatArea.insertBefore(row, typing);
 }
 
@@ -377,6 +462,7 @@ function setBusy(value, message = "Sterling IA réfléchit…") {
   $("analyzeImageButton").disabled = value;
   $("imageButton").disabled = value;
   $("generateButton").disabled = value;
+  $("montageButton").disabled = value;
   typing.textContent = message;
   typing.classList.toggle("show", value);
 }
@@ -389,19 +475,43 @@ function buildSystemInstruction() {
     correction: "correction",
     methode: "méthode de travail"
   };
-
   return `Tu es Sterling IA, assistant pédagogique.
 Niveau scolaire : ${levelSelect.value}
 Matière : ${subjectSelect.value}
 Mode : ${names[currentMode] || currentMode}
-Réponds en français sauf demande contraire. Explique progressivement, adapte ton vocabulaire au niveau, détaille les étapes quand c'est utile et tiens compte de l'historique fourni.`;
+Réponds en français sauf demande contraire. Explique progressivement, adapte ton vocabulaire au niveau et détaille les étapes quand c'est utile.`;
+}
+
+async function parseResponse(response) {
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`Réponse serveur invalide (HTTP ${response.status}).`);
+  }
+}
+
+function getServerError(data, response) {
+  return data?.message || data?.error || `Erreur HTTP ${response.status}`;
+}
+
+function addMessage(c, message) {
+  c.messages.push(message);
+  if (c.messages.length > MAX_MESSAGES) {
+    const removed = c.messages.splice(0, c.messages.length - MAX_MESSAGES);
+    removed.forEach(m => {
+      if (m.imageId) deleteStoredImage(m.imageId);
+    });
+  }
+  c.updatedAt = Date.now();
+  saveChats();
+  if (currentChatId === c.id) renderCurrentChat();
 }
 
 async function sendMessage(textOverride = null) {
   if (busy) return;
   const text = String(textOverride === null ? input.value : textOverride).trim();
   if (!text) return;
-
   const c = currentChat();
   if (!c) return;
 
@@ -409,14 +519,8 @@ async function sendMessage(textOverride = null) {
     role: m.role === "assistant" ? "assistant" : "user",
     content: m.content
   }));
-
-  c.messages.push({ role: "user", content: text });
-
-  if (c.messages.length === 1) {
-    c.title = text.slice(0, 42) + (text.length > 42 ? "…" : "");
-  }
-
-  c.updatedAt = Date.now();
+  addMessage(c, { role: "user", content: text });
+  if (c.messages.length === 1) c.title = text.slice(0, 42) + (text.length > 42 ? "…" : "");
   input.value = "";
   saveChats();
   renderCurrentChat();
@@ -432,32 +536,15 @@ async function sendMessage(textOverride = null) {
         mode: currentMode,
         level: levelSelect.value,
         subject: subjectSelect.value,
-        history: history.slice(-20)
+        history: history.slice(-12)
       })
     });
-
-    const raw = await response.text();
-    let data;
-    try { data = JSON.parse(raw); } catch { data = null; }
-
-    if (!response.ok) {
-      throw new Error(data?.error || data?.message || `Erreur HTTP ${response.status}`);
-    }
-
-    const answer = typeof data?.output === "string" ? data.output : "";
-    if (!answer.trim()) throw new Error("Le serveur n'a renvoyé aucune réponse.");
-
-    c.messages.push({ role: "assistant", content: answer });
-    c.updatedAt = Date.now();
-    saveChats();
-    if (currentChatId === c.id) renderCurrentChat();
+    const data = await parseResponse(response);
+    if (!response.ok || !data?.ok) throw new Error(getServerError(data, response));
+    if (typeof data.output !== "string" || !data.output.trim()) throw new Error("Le serveur n'a renvoyé aucune réponse.");
+    addMessage(c, { role: "assistant", content: data.output });
   } catch (err) {
-    c.messages.push({
-      role: "error",
-      content: "Sterling IA n'a pas pu répondre : " + (err.message || "Erreur inconnue")
-    });
-    saveChats();
-    if (currentChatId === c.id) renderCurrentChat();
+    addMessage(c, { role: "error", content: "Sterling IA n'a pas pu répondre : " + (err.message || "Erreur inconnue") });
   } finally {
     setBusy(false);
     renderChatList();
@@ -470,11 +557,13 @@ function editMessage(index) {
   const c = currentChat();
   const m = c?.messages[index];
   if (!m || m.role !== "user") return;
-
   const replacement = prompt("Modifie ta question :", m.content);
   if (replacement === null || !replacement.trim()) return;
-
+  const removed = c.messages.slice(index);
   c.messages = c.messages.slice(0, index);
+  removed.forEach(item => {
+    if (item.imageId) deleteStoredImage(item.imageId);
+  });
   c.updatedAt = Date.now();
   saveChats();
   renderCurrentChat();
@@ -484,10 +573,8 @@ function editMessage(index) {
 function renameCurrentChat() {
   const c = currentChat();
   if (!c || busy) return;
-
   const title = prompt("Nouveau titre :", c.title);
   if (title === null || !title.trim()) return;
-
   c.title = title.trim().slice(0, 100);
   c.updatedAt = Date.now();
   saveChats();
@@ -497,13 +584,13 @@ function renameCurrentChat() {
 function deleteCurrentChat() {
   if (busy) return;
   const c = currentChat();
-
   if (!c || !confirm(`Supprimer « ${c.title} » ?`)) return;
-
+  c.messages.forEach(m => {
+    if (m.imageId) deleteStoredImage(m.imageId);
+  });
   chats = chats.filter(x => x.id !== c.id);
   if (!chats.length) createChatRecord();
   currentChatId = chats[0].id;
-
   saveChats();
   renderCurrentChat();
 }
@@ -511,9 +598,10 @@ function deleteCurrentChat() {
 function clearCurrentChat() {
   if (busy) return;
   const c = currentChat();
-
   if (!c || !confirm("Effacer tous les messages de cette conversation ?")) return;
-
+  c.messages.forEach(m => {
+    if (m.imageId) deleteStoredImage(m.imageId);
+  });
   c.messages = [];
   c.title = "Nouvelle conversation";
   c.updatedAt = Date.now();
@@ -526,7 +614,6 @@ function speak(text) {
     alert("La lecture vocale n'est pas prise en charge par ce navigateur.");
     return;
   }
-
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(cleanMarkdown(text));
   utterance.lang = "fr-FR";
@@ -535,80 +622,71 @@ function speak(text) {
 
 function dictate() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
   if (!Recognition) {
     alert("La dictée vocale n'est pas prise en charge par ce navigateur.");
     return;
   }
-
   const recognition = new Recognition();
   recognition.lang = "fr-FR";
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
-
   recognition.onresult = event => {
     const transcript = event.results?.[0]?.[0]?.transcript || "";
     input.value = (input.value ? input.value + " " : "") + transcript;
     input.focus();
   };
-
   recognition.onerror = event => alert("Erreur de dictée : " + event.error);
   recognition.start();
 }
 
-function promptText(message, defaultValue) {
-  return window.prompt(message, defaultValue);
+async function fileToStoredImage(file) {
+  if (!file || !file.type.startsWith("image/")) throw new Error("Choisis un fichier image valide.");
+  if (file.size > MAX_IMAGE_BYTES) throw new Error("Cette image dépasse la limite de 10 Mo.");
+  return storeImage(file, file.name || "image.png");
 }
 
 async function transformPhoto(file) {
   if (!file || busy) return;
-
-  const promptValue = promptText(
-    "Que souhaites-tu modifier dans cette photo ?",
-    "Améliore cette image naturellement en conservant les éléments importants."
-  );
+  if (!file.type.startsWith("image/")) return alert("Choisis un fichier image valide.");
+  if (file.size > MAX_IMAGE_BYTES) return alert("Cette image dépasse la limite de 10 Mo.");
+  const promptValue = prompt("Que souhaites-tu modifier dans cette photo ?", "Améliore cette image naturellement en conservant les éléments importants.");
   if (promptValue === null || !promptValue.trim()) return;
-
   const c = currentChat();
-  c.messages.push({
-    role: "user",
-    content: "🖼️ Photo envoyée pour modification : " + file.name +
-      "\nInstruction : " + promptValue
-  });
+  if (!c) return;
 
-  saveChats();
-  renderCurrentChat();
+  let originalId = null;
+  try {
+    originalId = await fileToStoredImage(file);
+    addMessage(c, {
+      role: "user",
+      content: "🖼️ Photo envoyée pour modification : " + file.name + "\nInstruction : " + promptValue.trim(),
+      imageId: originalId,
+      imageName: file.name
+    });
+  } catch (error) {
+    alert("Impossible de sauvegarder l'image localement : " + error.message);
+    return;
+  }
+
   setBusy(true, "Modification de l'image…");
-
   try {
     const form = new FormData();
-    form.append("image", file);
+    form.append("image", file, file.name);
     form.append("prompt", promptValue.trim());
+    const response = await fetch(AI_SERVER + "/transform", { method: "POST", body: form });
+    const data = await parseResponse(response);
+    if (!response.ok || !data?.ok || !data.image) throw new Error(getServerError(data, response) || "La transformation a échoué.");
 
-    const response = await fetch(AI_SERVER + "/transform", {
-      method: "POST",
-      body: form
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.ok || !data.image) {
-      throw new Error(data.error || data.message || "La transformation a échoué.");
-    }
-
-    c.messages.push({
+    const generatedBlob = await (await fetch(data.image)).blob();
+    const resultId = await storeImage(generatedBlob, "sterling-image-transformee.png");
+    addMessage(c, {
       role: "assistant",
-      content: "Image transformée :\n" + data.image
+      content: "Voici ton image transformée.",
+      imageId: resultId,
+      imageName: "sterling-image-transformee.png"
     });
-    saveChats();
-    renderCurrentChat();
   } catch (err) {
-    c.messages.push({
-      role: "error",
-      content: "Impossible de transformer cette image : " + err.message
-    });
-    saveChats();
-    renderCurrentChat();
+    addMessage(c, { role: "error", content: "Impossible de transformer cette image : " + err.message });
   } finally {
     setBusy(false);
   }
@@ -616,91 +694,44 @@ async function transformPhoto(file) {
 
 async function analyzeImage(file) {
   if (!file || busy) return;
+  if (!file.type.startsWith("image/")) return alert("Choisis un fichier image valide.");
+  if (file.size > MAX_IMAGE_BYTES) return alert("Cette image dépasse la limite de 10 Mo.");
 
-  if (!file.type.startsWith("image/")) {
-    alert("Choisis un fichier image valide.");
-    return;
-  }
-
-  if (file.size > MAX_IMAGE_BYTES) {
-    alert("Cette image dépasse la limite de 10 Mo.");
-    return;
-  }
-
-  const question = promptText(
-    "Que veux-tu savoir sur cette image ?",
-    "Décris cette image et explique les éléments importants."
-  );
+  const question = prompt("Que veux-tu savoir sur cette image ?", "Décris cette image et explique les éléments importants.");
   if (question === null || !question.trim()) return;
-
   const c = currentChat();
-  const questionText = question.trim();
+  if (!c) return;
+  let imageId;
 
-  c.messages.push({
-    role: "user",
-    content: "🔎 Analyse de l'image : " + file.name +
-      "\nQuestion : " + questionText
-  });
+  try {
+    imageId = await fileToStoredImage(file);
+    addMessage(c, {
+      role: "user",
+      content: "🔎 Analyse de l'image : " + file.name + "\nQuestion : " + question.trim(),
+      imageId,
+      imageName: file.name
+    });
+  } catch (error) {
+    alert("Impossible de sauvegarder l'image localement : " + error.message);
+    return;
+  }
 
-  c.updatedAt = Date.now();
-  saveChats();
-  renderCurrentChat();
   setBusy(true, "Analyse de l'image…");
-
   try {
     const form = new FormData();
     form.append("image", file, file.name);
-    form.append("prompt", questionText);
+    form.append("question", question.trim());
+    form.append("system", buildSystemInstruction());
     form.append("level", levelSelect.value);
     form.append("subject", subjectSelect.value);
     form.append("mode", currentMode);
 
-    const response = await fetch(AI_SERVER + "/analyze-image", {
-      method: "POST",
-      body: form
-    });
-
-    const raw = await response.text();
-    let data;
-
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      data = null;
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error || data?.message ||
-        `Erreur HTTP ${response.status}. Vérifie que /analyze-image existe sur le serveur.`
-      );
-    }
-
-    const answer = typeof data?.output === "string" ? data.output : "";
-
-    if (!data?.ok || !answer.trim()) {
-      throw new Error(data?.error || "Le serveur n'a pas renvoyé d'analyse.");
-    }
-
-    c.messages.push({
-      role: "assistant",
-      content: answer
-    });
-
-    c.updatedAt = Date.now();
-    saveChats();
-    renderCurrentChat();
+    const response = await fetch(AI_SERVER + "/understand-image", { method: "POST", body: form });
+    const data = await parseResponse(response);
+    if (!response.ok || !data?.ok || !data.output?.trim()) throw new Error(getServerError(data, response));
+    addMessage(c, { role: "assistant", content: data.output });
   } catch (err) {
-    console.error("Analyse d'image :", err);
-
-    c.messages.push({
-      role: "error",
-      content: "L'analyse de l'image a échoué : " + err.message +
-        "\n\nSi la route /analyze-image n'a pas encore été ajoutée à server.js, cette fonction ne pourra pas fonctionner."
-    });
-
-    saveChats();
-    renderCurrentChat();
+    addMessage(c, { role: "error", content: "L'analyse de l'image a échoué : " + err.message });
   } finally {
     setBusy(false);
   }
@@ -708,50 +739,95 @@ async function analyzeImage(file) {
 
 async function generateImage() {
   if (busy) return;
-
-  const promptValue = promptText(
-    "Décris l'image à générer :",
-    "Un paysage fantastique au coucher du soleil."
-  );
-
+  const promptValue = prompt("Décris l'image à générer :", "Un paysage fantastique au coucher du soleil.");
   if (!promptValue?.trim()) return;
-
   const c = currentChat();
-  const prompt = promptValue.trim();
-
-  c.messages.push({ role: "user", content: "✨ Génère une image : " + prompt });
-  c.updatedAt = Date.now();
-  saveChats();
-  renderCurrentChat();
+  if (!c) return;
+  const promptText = promptValue.trim();
+  addMessage(c, { role: "user", content: "✨ Génère une image : " + promptText });
   setBusy(true, "Génération de l'image…");
 
   try {
     const response = await fetch(AI_SERVER + "/generate-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt: promptText })
     });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.ok || !data.image) {
-      throw new Error(data.error || data.message || "La génération a échoué.");
-    }
-
-    c.messages.push({
+    const data = await parseResponse(response);
+    if (!response.ok || !data?.ok || !data.image) throw new Error(getServerError(data, response));
+    const blob = await (await fetch(data.image)).blob();
+    const imageId = await storeImage(blob, "sterling-image-generee.png");
+    addMessage(c, {
       role: "assistant",
-      content: "Image générée :\n" + data.image
+      content: "Voici l'image générée à partir de ta description.",
+      imageId,
+      imageName: "sterling-image-generee.png"
+    });
+  } catch (err) {
+    addMessage(c, { role: "error", content: "Génération d'image indisponible : " + err.message });
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function createMontage(files) {
+  if (busy || !files?.length) return;
+  const selected = Array.from(files).filter(f => f.type.startsWith("image/"));
+  if (selected.length < 2) return alert("Choisis au moins deux images pour créer un montage.");
+  if (selected.length > 12) return alert("Choisis au maximum 12 images pour un montage.");
+  if (selected.some(f => f.size > MAX_IMAGE_BYTES)) return alert("Chaque image doit faire moins de 10 Mo.");
+
+  const c = currentChat();
+  if (!c) return;
+  setBusy(true, "Création du montage…");
+
+  try {
+    const loaded = await Promise.all(selected.map(file => new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => resolve({ img, url, file });
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Une des images n'a pas pu être chargée."));
+      };
+      img.src = url;
+    })));
+
+    const cols = Math.ceil(Math.sqrt(loaded.length));
+    const rows = Math.ceil(loaded.length / cols);
+    const cellW = 480;
+    const cellH = 360;
+    const canvas = document.createElement("canvas");
+    canvas.width = cols * cellW;
+    canvas.height = rows * cellH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas non disponible.");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    loaded.forEach(({ img }, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      const scale = Math.min((cellW - 16) / img.width, (cellH - 16) / img.height);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      const x = col * cellW + (cellW - w) / 2;
+      const y = row * cellH + (cellH - h) / 2;
+      ctx.drawImage(img, x, y, w, h);
     });
 
-    saveChats();
-    renderCurrentChat();
-  } catch (err) {
-    c.messages.push({
-      role: "error",
-      content: "Génération d'image indisponible : " + err.message
+    loaded.forEach(item => URL.revokeObjectURL(item.url));
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("Impossible d'exporter le montage.");
+    const imageId = await storeImage(blob, "sterling-montage.png");
+    addMessage(c, {
+      role: "user",
+      content: `🧩 Montage créé à partir de ${selected.length} images. Tu peux maintenant demander à Sterling IA de l'analyser ou de le modifier.`,
+      imageId,
+      imageName: "sterling-montage.png"
     });
-    saveChats();
-    renderCurrentChat();
+  } catch (err) {
+    addMessage(c, { role: "error", content: "Impossible de créer le montage : " + err.message });
   } finally {
     setBusy(false);
   }
@@ -761,12 +837,10 @@ async function checkServer() {
   try {
     const response = await fetch(AI_SERVER + "/", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
-
     const data = await response.json();
     if (!data.ok) throw new Error("Service non confirmé");
-
     $("statusDot").className = "dot online";
-    $("statusText").textContent = "IA disponible";
+    $("statusText").textContent = data.geminiConfigured === false ? "Clé API à configurer" : "IA disponible";
   } catch (error) {
     $("statusDot").className = "dot error";
     $("statusText").textContent = "Connexion à vérifier";
@@ -779,15 +853,7 @@ document.querySelectorAll(".mode").forEach(button => {
     document.querySelectorAll(".mode").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
     currentMode = button.dataset.mode;
-
-    const labels = {
-      devoir: "Devoir",
-      cours: "Cours",
-      resume: "Résumé",
-      correction: "Correction",
-      methode: "Méthode"
-    };
-
+    const labels = { devoir:"Devoir", cours:"Cours", resume:"Résumé", correction:"Correction", methode:"Méthode" };
     $("modeInfo").textContent = "Mode : " + labels[currentMode];
   });
 });
@@ -813,34 +879,35 @@ input.addEventListener("keydown", event => {
 });
 
 $("micButton").addEventListener("click", dictate);
-
 $("readButton").addEventListener("click", () => {
   const c = currentChat();
   const last = [...(c?.messages || [])].reverse().find(m => m.role === "assistant");
-
   if (last) speak(last.content);
   else alert("Il n'y a pas encore de réponse à lire.");
 });
-
 $("stopAudio").addEventListener("click", () => {
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 });
 
 $("imageButton").addEventListener("click", () => $("imageInput").click());
 $("analyzeImageButton").addEventListener("click", () => $("analyzeImageInput").click());
+$("montageButton").addEventListener("click", () => $("montageInput").click());
 
 $("imageInput").addEventListener("change", event => {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (file) transformPhoto(file);
 });
-
 $("analyzeImageInput").addEventListener("change", event => {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (file) analyzeImage(file);
 });
-
+$("montageInput").addEventListener("change", event => {
+  const files = event.target.files;
+  event.target.value = "";
+  if (files?.length) createMontage(files);
+});
 $("generateButton").addEventListener("click", generateImage);
 
 if (!chats.length) {
@@ -856,4 +923,4 @@ checkServer();
 </script>
 </body>
  </html>
-       
+                                                              
