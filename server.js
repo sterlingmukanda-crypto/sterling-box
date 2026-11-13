@@ -19,6 +19,9 @@ const IMAGE_MODEL = process.env.IMAGE_MODEL || "gemini-3.1-flash-image";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 20000;
 
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1200;
+
 const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 app.disable("x-powered-by");
@@ -39,6 +42,121 @@ const upload = multer({
   }
 });
 
+/* -------------------------------------------------------
+   GESTION DES ERREURS GEMINI
+------------------------------------------------------- */
+
+function getErrorStatus(error) {
+  const candidates = [
+    error?.status,
+    error?.code,
+    error?.response?.status,
+    error?.error?.code,
+    error?.cause?.status
+  ];
+
+  for (const candidate of candidates) {
+    const status = Number(candidate);
+
+    if (Number.isInteger(status) && status >= 400 && status <= 599) {
+      return status;
+    }
+  }
+
+  const message = String(error?.message || "");
+
+  if (/RESOURCE_EXHAUSTED|429/.test(message)) return 429;
+  if (/UNAVAILABLE|503/.test(message)) return 503;
+  if (/DEADLINE_EXCEEDED|504/.test(message)) return 504;
+
+  return null;
+}
+
+function isTemporaryError(error) {
+  const status = getErrorStatus(error);
+
+  if ([408, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  const networkCodes = [
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "EAI_AGAIN",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT"
+  ];
+
+  return networkCodes.includes(error?.code) ||
+    networkCodes.includes(error?.cause?.code);
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getRetryDelay(error, attempt) {
+  const retryAfter =
+    error?.response?.headers?.["retry-after"] ||
+    error?.headers?.["retry-after"];
+
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.min(seconds * 1000, 15000);
+    }
+
+    const date = Date.parse(retryAfter);
+
+    if (!Number.isNaN(date)) {
+      return Math.min(Math.max(date - Date.now(), 0), 15000);
+    }
+  }
+
+  const exponentialDelay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+  const jitter = Math.floor(Math.random() * 400);
+
+  return exponentialDelay + jitter;
+}
+
+async function generateWithRetry(operation, label = "GEMINI") {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      const temporary = isTemporaryError(error);
+
+      if (!temporary || attempt === MAX_RETRIES) {
+        console.error(
+          `[${label}] Échec après ${attempt + 1} tentative(s) :`,
+          error?.message || error
+        );
+
+        throw error;
+      }
+
+      const delay = getRetryDelay(error, attempt);
+
+      console.warn(
+        `[${label}] Erreur temporaire. ` +
+        `Nouvelle tentative ${attempt + 1}/${MAX_RETRIES} ` +
+        `dans ${delay} ms.`
+      );
+
+      await sleep(delay);
+    }
+  }
+
+  throw new Error("Échec des tentatives Gemini.");
+}
+
+/* -------------------------------------------------------
+   OUTILS GÉNÉRAUX
+------------------------------------------------------- */
+
 function requireAI(req, res, next) {
   if (!ai) {
     return res.status(503).json({
@@ -47,15 +165,17 @@ function requireAI(req, res, next) {
       message: "La clé GEMINI_API_KEY n'est pas configurée sur le serveur."
     });
   }
+
   next();
 }
 
 function getText(value, maxLength = MAX_TEXT_LENGTH) {
-  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+  return typeof value === "string"
+    ? value.trim().slice(0, maxLength)
+    : "";
 }
 
 function getImageData(response) {
-  // Format recommandé pour les réponses d'image de l'API Gemini.
   const outputImage = response?.outputImage || response?.output_image;
 
   if (outputImage?.data) {
@@ -70,7 +190,6 @@ function getImageData(response) {
     };
   }
 
-  // Compatibilité avec les réponses Generate Content.
   const parts =
     response?.candidates?.[0]?.content?.parts ||
     response?.response?.candidates?.[0]?.content?.parts ||
@@ -92,7 +211,6 @@ function getImageData(response) {
     }
   }
 
-  // Compatibilité avec les blocs d'image de l'API Interactions.
   for (const step of response?.steps || []) {
     if (step?.type !== "model_output") continue;
 
@@ -152,23 +270,64 @@ function buildSystemInstruction({ system, mode, level, subject }) {
     `Mode de travail : ${getText(mode, 100) || "devoir"}.`,
     "Réponds dans la langue utilisée par l'utilisateur, sauf demande contraire.",
     "Pour les exercices, explique les étapes et adapte les explications au niveau scolaire.",
-    suppliedSystem ? `Instructions supplémentaires de l'application : ${suppliedSystem}` : ""
+    suppliedSystem
+      ? `Instructions supplémentaires de l'application : ${suppliedSystem}`
+      : ""
   ].filter(Boolean).join("\n");
 }
+
+/* -------------------------------------------------------
+   RÉPONSES D'ERREUR
+------------------------------------------------------- */
 
 function sendServerError(res, error, label = "Erreur du serveur") {
   console.error(`[${label}]`, error);
 
-  const message =
-    error?.message ||
-    "Une erreur inattendue est survenue.";
+  const providerStatus = getErrorStatus(error);
+  const networkError = isTemporaryError(error);
 
-  return res.status(500).json({
+  let status = 500;
+  let code = "SERVER_ERROR";
+  let message = "Une erreur inattendue est survenue.";
+
+  if (providerStatus === 429) {
+    status = 429;
+    code = "GEMINI_RATE_LIMIT";
+    message =
+      "Gemini reçoit trop de demandes actuellement. " +
+      "Patiente un instant puis réessaie.";
+  } else if (providerStatus === 503 || providerStatus === 504) {
+    status = 503;
+    code = "GEMINI_UNAVAILABLE";
+    message =
+      "Le service Gemini est temporairement indisponible. " +
+      "Réessaie dans quelques instants.";
+  } else if (
+    providerStatus === 408 ||
+    providerStatus === 500 ||
+    providerStatus === 502
+  ) {
+    status = 503;
+    code = "GEMINI_TEMPORARY_ERROR";
+    message =
+      "Le service IA rencontre un problème temporaire. Réessaie bientôt.";
+  } else if (networkError) {
+    status = 503;
+    code = "GEMINI_CONNECTION_ERROR";
+    message =
+      "Impossible de joindre le service IA pour le moment. Réessaie.";
+  }
+
+  return res.status(status).json({
     ok: false,
-    error: "SERVER_ERROR",
-    message: message.slice(0, 500)
+    error: code,
+    message
   });
 }
+
+/* -------------------------------------------------------
+   ACCUEIL ET SANTÉ DU SERVEUR
+------------------------------------------------------- */
 
 app.get("/", (req, res) => {
   res.json({
@@ -202,6 +361,7 @@ app.get("/health", (req, res) => {
    CHAT IA
    POST /chat
 ------------------------------------------------------- */
+
 app.post("/chat", requireAI, async (req, res) => {
   try {
     const message = getText(req.body?.message);
@@ -214,6 +374,7 @@ app.post("/chat", requireAI, async (req, res) => {
     }
 
     const system = buildSystemInstruction(req.body || {});
+
     const history = Array.isArray(req.body?.history)
       ? req.body.history.slice(-12)
       : [];
@@ -225,7 +386,9 @@ app.post("/chat", requireAI, async (req, res) => {
         typeof item.content === "string"
       )
       .map(item => {
-        const role = item.role === "assistant" ? "Assistant" : "Utilisateur";
+        const role =
+          item.role === "assistant" ? "Assistant" : "Utilisateur";
+
         return `${role} : ${getText(item.content, 6000)}`;
       })
       .join("\n\n");
@@ -236,10 +399,13 @@ app.post("/chat", requireAI, async (req, res) => {
       `Nouvelle question de l'utilisateur :\n${message}`
     ].filter(Boolean).join("\n\n");
 
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: prompt
-    });
+    const response = await generateWithRetry(
+      () => ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: prompt
+      }),
+      "CHAT"
+    );
 
     const output = getResponseText(response);
 
@@ -264,6 +430,7 @@ app.post("/chat", requireAI, async (req, res) => {
    POST /understand-image
    Alias : POST /analyze-image
 ------------------------------------------------------- */
+
 async function handleImageAnalysis(req, res) {
   try {
     if (!req.file) {
@@ -280,28 +447,31 @@ async function handleImageAnalysis(req, res) {
 
     const system = buildSystemInstruction(req.body || {});
 
-    const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text:
-                `${system}\n\n` +
-                `Question sur l'image : ${question}\n\n` +
-                "Observe l'image et réponds de manière précise et pédagogique."
-            },
-            {
-              inlineData: {
-                mimeType: req.file.mimetype,
-                data: req.file.buffer.toString("base64")
+    const response = await generateWithRetry(
+      () => ai.models.generateContent({
+        model: TEXT_MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text:
+                  `${system}\n\n` +
+                  `Question sur l'image : ${question}\n\n` +
+                  "Observe l'image et réponds de manière précise et pédagogique."
+              },
+              {
+                inlineData: {
+                  mimeType: req.file.mimetype,
+                  data: req.file.buffer.toString("base64")
+                }
               }
-            }
-          ]
-        }
-      ]
-    });
+            ]
+          }
+        ]
+      }),
+      "IMAGE_ANALYSIS"
+    );
 
     const output = getResponseText(response);
 
@@ -339,6 +509,7 @@ app.post(
    MODIFICATION DE PHOTO
    POST /transform
 ------------------------------------------------------- */
+
 app.post(
   "/transform",
   requireAI,
@@ -361,32 +532,35 @@ app.post(
         });
       }
 
-      const response = await ai.models.generateContent({
-        model: IMAGE_MODEL,
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text:
-                  "Modifie l'image fournie selon les instructions suivantes. " +
-                  "Conserve les éléments importants non concernés par la demande. " +
-                  "Retourne une image modifiée.\n\n" +
-                  `Instructions : ${prompt}`
-              },
-              {
-                inlineData: {
-                  mimeType: req.file.mimetype,
-                  data: req.file.buffer.toString("base64")
+      const response = await generateWithRetry(
+        () => ai.models.generateContent({
+          model: IMAGE_MODEL,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "Modifie l'image fournie selon les instructions suivantes. " +
+                    "Conserve les éléments importants non concernés par la demande. " +
+                    "Retourne une image modifiée.\n\n" +
+                    `Instructions : ${prompt}`
+                },
+                {
+                  inlineData: {
+                    mimeType: req.file.mimetype,
+                    data: req.file.buffer.toString("base64")
+                  }
                 }
-              }
-            ]
+              ]
+            }
+          ],
+          config: {
+            responseModalities: ["TEXT", "IMAGE"]
           }
-        ],
-        config: {
-          responseModalities: ["TEXT", "IMAGE"]
-        }
-      });
+        }),
+        "IMAGE_TRANSFORM"
+      );
 
       const result = getImageData(response);
 
@@ -416,8 +590,8 @@ app.post(
 /* -------------------------------------------------------
    GÉNÉRATION D'IMAGE
    POST /generate-image
-   Body JSON : { "prompt": "..." }
 ------------------------------------------------------- */
+
 app.post("/generate-image", requireAI, async (req, res) => {
   try {
     const prompt = getText(req.body?.prompt);
@@ -429,17 +603,20 @@ app.post("/generate-image", requireAI, async (req, res) => {
       });
     }
 
-    const response = await ai.models.generateContent({
-      model: IMAGE_MODEL,
-      contents: [
-        "Crée une image correspondant à cette description. " +
-        "Retourne une image de bonne qualité.\n\n" +
-        `Description : ${prompt}`
-      ],
-      config: {
-        responseModalities: ["TEXT", "IMAGE"]
-      }
-    });
+    const response = await generateWithRetry(
+      () => ai.models.generateContent({
+        model: IMAGE_MODEL,
+        contents: [
+          "Crée une image correspondant à cette description. " +
+          "Retourne une image de bonne qualité.\n\n" +
+          `Description : ${prompt}`
+        ],
+        config: {
+          responseModalities: ["TEXT", "IMAGE"]
+        }
+      }),
+      "IMAGE_GENERATION"
+    );
 
     const result = getImageData(response);
 
@@ -466,8 +643,9 @@ app.post("/generate-image", requireAI, async (req, res) => {
 });
 
 /* -------------------------------------------------------
-   ERREURS MULTER ET ROUTES INCONNUES
+   ERREURS MULTER ET EXPRESS
 ------------------------------------------------------- */
+
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
 
@@ -483,7 +661,8 @@ app.use((err, req, res, next) => {
   }
 
   if (err) {
-    const status = err.message?.includes("doit être une image") ? 400 : 500;
+    const status =
+      err.message?.includes("doit être une image") ? 400 : 500;
 
     console.error("[EXPRESS_ERROR]", err);
 
@@ -498,6 +677,10 @@ app.use((err, req, res, next) => {
   next();
 });
 
+/* -------------------------------------------------------
+   ROUTES INCONNUES
+------------------------------------------------------- */
+
 app.use((req, res) => {
   res.status(404).json({
     ok: false,
@@ -505,10 +688,15 @@ app.use((req, res) => {
   });
 });
 
+/* -------------------------------------------------------
+   DÉMARRAGE
+------------------------------------------------------- */
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Sterling Box IA écoute sur le port ${PORT}`);
   console.log(`Modèle texte : ${TEXT_MODEL}`);
   console.log(`Modèle image : ${IMAGE_MODEL}`);
   console.log(`Clé Gemini configurée : ${Boolean(API_KEY)}`);
+  console.log(`Nombre maximal de tentatives : ${MAX_RETRIES + 1}`);
 });
   
